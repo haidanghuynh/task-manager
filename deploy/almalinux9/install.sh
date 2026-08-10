@@ -405,13 +405,17 @@ systemctl enable --now nginx
 
 HEALTHY=0
 for _ in {1..30}; do
-  if curl --fail --silent --show-error "http://127.0.0.1:${APP_PORT}/login" >/dev/null; then
+  if curl --fail --silent "http://127.0.0.1:${APP_PORT}/login" >/dev/null; then
     HEALTHY=1
+    break
+  fi
+  if ! systemctl is-active --quiet task-manager.service; then
     break
   fi
   sleep 1
 done
 if (( HEALTHY == 0 )); then
+  systemctl status task-manager.service --no-pager --full >&2 || true
   journalctl -u task-manager.service --no-pager -n 80 >&2 || true
   fail "Ứng dụng chưa phản hồi. Xem log phía trên hoặc chạy: journalctl -u task-manager -f"
 fi
