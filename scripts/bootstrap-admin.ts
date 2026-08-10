@@ -59,6 +59,7 @@ async function main() {
       passwordHash: await bcrypt.hash(password, 12),
       role: "ADMIN",
       isActive: true,
+      isPrimaryAdmin: true,
     },
   });
 

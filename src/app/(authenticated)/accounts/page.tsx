@@ -8,7 +8,7 @@ type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
 type EmployeeOption = { id: string; employeeCode: string; fullName: string; user: { id: string } | null };
 type Account = {
   id: string; name: string; username: string; role: Role; employeeId: string | null;
-  isActive: boolean; createdAt: string;
+  isActive: boolean; isPrimaryAdmin: boolean; createdAt: string;
   employee: { employeeCode: string; fullName: string; isActive: boolean } | null;
 };
 
@@ -31,9 +31,13 @@ const copy = {
     duplicate: "Tên đăng nhập hoặc nhân viên này đã được liên kết với tài khoản khác.",
     invalidUsername: "Tên đăng nhập phải có 3-50 ký tự và chỉ gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.",
     weakPassword: "Mật khẩu phải có ít nhất 8 ký tự.",
-    lastAdmin: "Không thể khóa hoặc hạ quyền Admin cuối cùng.",
     selfLockout: "Bạn không thể tự khóa hoặc bỏ quyền Admin của chính mình.",
     invalidEmployee: "Nhân viên không tồn tại hoặc đã ngừng hoạt động.",
+    primaryAdmin: "Admin gốc", delete: "Xóa",
+    confirmDelete: "Xóa tài khoản này? Tài khoản sẽ không thể đăng nhập nhưng lịch sử thao tác vẫn được giữ.",
+    primaryProtected: "Admin gốc được tạo lúc cài đặt không thể đổi quyền, khóa hoặc xóa.",
+    selfDelete: "Bạn không thể tự xóa tài khoản đang đăng nhập.",
+    deleted: "Đã xóa tài khoản.",
   },
   ja: {
     title: "アカウント管理", add: "+ アカウント作成",
@@ -53,9 +57,13 @@ const copy = {
     duplicate: "このユーザー名または社員は別のアカウントに連携されています。",
     invalidUsername: "ユーザー名は3～50文字で、英数字・ピリオド・アンダースコア・ハイフンのみ使用できます。",
     weakPassword: "パスワードは8文字以上で入力してください。",
-    lastAdmin: "最後の有効な管理者はロックまたは降格できません。",
     selfLockout: "自分のアカウントをロックしたり、管理者権限を外したりすることはできません。",
     invalidEmployee: "社員が存在しないか、無効になっています。",
+    primaryAdmin: "初期管理者", delete: "削除",
+    confirmDelete: "このアカウントを削除しますか？ログインできなくなりますが、操作履歴は保持されます。",
+    primaryProtected: "インストール時に作成された初期管理者は、権限変更・ロック・削除できません。",
+    selfDelete: "現在ログイン中の自分のアカウントは削除できません。",
+    deleted: "アカウントを削除しました。",
   },
 };
 
@@ -120,8 +128,9 @@ export default function AccountsPage() {
     const messages: Record<string, string> = {
       DUPLICATE: text.duplicate,
       WEAK_PASSWORD: text.weakPassword,
-      LAST_ADMIN: text.lastAdmin,
       SELF_LOCKOUT: text.selfLockout,
+      SELF_DELETE: text.selfDelete,
+      PRIMARY_ADMIN_PROTECTED: text.primaryProtected,
       INVALID_EMPLOYEE: text.invalidEmployee,
       EMPLOYEE_REQUIRED: text.employeeRequired,
       VALIDATION_ERROR: text.invalidUsername,
@@ -155,6 +164,14 @@ export default function AccountsPage() {
     if (!json.success) alert(localizedError(json)); else await load();
   }
 
+  async function remove(account: Account) {
+    if (!confirm(text.confirmDelete)) return;
+    const response = await fetch(`/api/users/${account.id}`, { method: "DELETE" });
+    const json = await response.json();
+    if (!json.success) alert(localizedError(json));
+    else { alert(text.deleted); await load(); }
+  }
+
   if (status === "loading") return <div className="p-6 text-gray-500">{text.loading}</div>;
   if (!isAdmin) return <div className="p-6"><div className="rounded-lg bg-yellow-50 p-4 text-yellow-800">{text.denied}</div></div>;
 
@@ -171,7 +188,7 @@ export default function AccountsPage() {
             <label className="space-y-1 text-sm"><span>{text.name}</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{text.username}</span><input required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]+" autoComplete="username" value={form.username} placeholder={text.usernameHint} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{editing ? text.newPassword : text.password}</span><input required={!editing} minLength={8} type="password" value={form.password} placeholder={text.passwordHint} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
-            <label className="space-y-1 text-sm"><span>{text.role}</span><select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, employeeId: e.target.value === "EMPLOYEE" ? form.employeeId : "" })} className="w-full rounded border px-3 py-2"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
+            <label className="space-y-1 text-sm"><span>{text.role}</span><select disabled={editing?.isPrimaryAdmin} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, employeeId: e.target.value === "EMPLOYEE" ? form.employeeId : "" })} className="w-full rounded border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
             {form.role === "EMPLOYEE" && <label className="space-y-1 text-sm md:col-span-2"><span>{text.employee}</span><select required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.selectEmployee}</option>{employeeOptions.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} — {employee.fullName}</option>)}</select></label>}
           </div>
           {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
@@ -183,7 +200,7 @@ export default function AccountsPage() {
         {loading ? <div className="p-8 text-center text-gray-500">{text.loading}</div> : accounts.length === 0 ? <div className="p-8 text-center text-gray-500">{text.empty}</div> : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3">{text.name}</th><th className="px-4 py-3">{text.username}</th><th className="px-4 py-3">{text.role}</th><th className="px-4 py-3">{text.employee}</th><th className="px-4 py-3">{text.status}</th><th className="px-4 py-3"></th></tr></thead>
-            <tbody className="divide-y">{accounts.map((account) => <tr key={account.id}><td className="px-4 py-3 font-medium">{account.name}</td><td className="px-4 py-3 font-mono">{account.username}</td><td className="px-4 py-3">{account.role === "ADMIN" ? text.roleAdmin : account.role === "MANAGER" ? text.roleManager : text.roleEmployee}</td><td className="px-4 py-3 text-gray-600">{account.employee ? `${account.employee.employeeCode} — ${account.employee.fullName}` : text.noEmployee}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs ${account.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>{account.isActive ? text.active : text.inactive}</span></td><td className="px-4 py-3 text-right space-x-3"><button onClick={() => startEdit(account)} className="text-blue-600 hover:underline">{text.edit}</button><button disabled={account.id === currentUser?.id} onClick={() => toggle(account)} className="text-orange-600 hover:underline disabled:text-gray-300 disabled:no-underline">{account.isActive ? text.lock : text.unlock}</button></td></tr>)}</tbody>
+            <tbody className="divide-y">{accounts.map((account) => <tr key={account.id}><td className="px-4 py-3 font-medium">{account.name}</td><td className="px-4 py-3 font-mono">{account.username}</td><td className="px-4 py-3"><span>{account.role === "ADMIN" ? text.roleAdmin : account.role === "MANAGER" ? text.roleManager : text.roleEmployee}</span>{account.isPrimaryAdmin && <span className="ml-2 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">{text.primaryAdmin}</span>}</td><td className="px-4 py-3 text-gray-600">{account.employee ? `${account.employee.employeeCode} — ${account.employee.fullName}` : text.noEmployee}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs ${account.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>{account.isActive ? text.active : text.inactive}</span></td><td className="px-4 py-3 text-right space-x-3"><button onClick={() => startEdit(account)} className="text-blue-600 hover:underline">{text.edit}</button>{account.isPrimaryAdmin ? <span className="text-xs text-gray-400">{text.primaryAdmin}</span> : <><button disabled={account.id === currentUser?.id} onClick={() => toggle(account)} className="text-orange-600 hover:underline disabled:text-gray-300 disabled:no-underline">{account.isActive ? text.lock : text.unlock}</button><button disabled={account.id === currentUser?.id} onClick={() => remove(account)} className="text-red-600 hover:underline disabled:text-gray-300 disabled:no-underline">{text.delete}</button></>}</td></tr>)}</tbody>
           </table>
         )}
       </div>

@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  username     String   @unique @map("email")
-  passwordHash String
-  role         String   @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
-  employeeId   String?  @unique
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String    @id @default(cuid())
+  name           String
+  username       String    @unique @map("email")
+  passwordHash   String
+  role           String    @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
+  employeeId     String?   @unique
+  isActive       Boolean   @default(true)
+  isPrimaryAdmin Boolean   @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   employee       Employee?               @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   createdTasks   Task[]                  @relation("TaskCreatedBy")
@@ -26,6 +28,7 @@ model User {
   assignmentsAs  TaskAssignmentHistory[] @relation("AssignedBy")
   commentDeletes TaskComment[]           @relation("CommentDeletedBy")
 
+  @@index([deletedAt])
   @@map("users")
 }
 

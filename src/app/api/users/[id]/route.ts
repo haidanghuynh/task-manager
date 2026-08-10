@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const target = await prisma.user.findUnique({ where: { id } });
-  if (!target) return error(404, "NOT_FOUND", "Account not found");
+  if (!target || target.deletedAt) return error(404, "NOT_FOUND", "Account not found");
 
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : target.name;
@@ -39,34 +39,59 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!employee?.isActive) return error(400, "INVALID_EMPLOYEE", "Employee does not exist or is inactive");
   }
   if (password && password.length < 8) return error(400, "WEAK_PASSWORD", "Password must contain at least 8 characters");
+  if (target.isPrimaryAdmin && (!isActive || role !== "ADMIN")) {
+    return error(400, "PRIMARY_ADMIN_PROTECTED", "The primary Admin cannot be disabled or demoted");
+  }
   if (id === currentUser.id && (!isActive || role !== "ADMIN")) {
     return error(400, "SELF_LOCKOUT", "You cannot disable or remove Admin rights from your own account");
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      if (target.role === "ADMIN" && target.isActive && (!isActive || role !== "ADMIN")) {
-        const adminCount = await tx.user.count({ where: { role: "ADMIN", isActive: true } });
-        if (adminCount <= 1) throw new Error("LAST_ADMIN");
-      }
-      return tx.user.update({
-        where: { id },
-        data: {
-          name, username, role, isActive,
-          employeeId: role === "EMPLOYEE" ? employeeId : employeeId || null,
-          ...(password ? { passwordHash: await hash(password, 12) } : {}),
-        },
-        select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true },
-      });
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        name, username, role, isActive,
+        employeeId: role === "EMPLOYEE" ? employeeId : employeeId || null,
+        ...(password ? { passwordHash: await hash(password, 12) } : {}),
+      },
+      select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true, isPrimaryAdmin: true },
     });
     return NextResponse.json({ success: true, data: updated });
   } catch (caught: unknown) {
-    if (caught instanceof Error && caught.message === "LAST_ADMIN") {
-      return error(400, "LAST_ADMIN", "The last active Admin cannot be disabled or demoted");
-    }
     const code = (caught as { code?: string }).code;
     if (code === "P2002") return error(409, "DUPLICATE", "Username or employee is already linked to another account");
     if (code === "P2003") return error(400, "INVALID_EMPLOYEE", "Employee does not exist");
     return error(500, "SERVER_ERROR", "Could not update account");
   }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return error(401, "UNAUTHORIZED", "Unauthorized");
+  if (currentUser.role !== "ADMIN") return error(403, "FORBIDDEN", "Admin only");
+
+  const { id } = await params;
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, isPrimaryAdmin: true, deletedAt: true },
+  });
+  if (!target || target.deletedAt) return error(404, "NOT_FOUND", "Account not found");
+  if (target.isPrimaryAdmin) {
+    return error(400, "PRIMARY_ADMIN_PROTECTED", "The primary Admin cannot be deleted");
+  }
+  if (target.id === currentUser.id) {
+    return error(400, "SELF_DELETE", "You cannot delete your own account");
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      username: `deleted-${id}`,
+      isActive: false,
+      employeeId: null,
+      deletedAt: new Date(),
+    },
+  });
+
+  return NextResponse.json({ success: true });
 }

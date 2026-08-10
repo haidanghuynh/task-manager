@@ -64,6 +64,7 @@ async function main() {
       passwordHash: password,
       role: "ADMIN",
       isActive: true,
+      isPrimaryAdmin: true,
     },
   });
 

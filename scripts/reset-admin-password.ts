@@ -12,8 +12,8 @@ function argumentValue(name: string): string | undefined {
 async function main() {
   if (process.argv.includes("--list") || process.env.RESET_ADMIN_LIST === "1") {
     const admins = await prisma.user.findMany({
-      where: { role: "ADMIN" },
-      select: { username: true, name: true, isActive: true },
+      where: { role: "ADMIN", deletedAt: null },
+      select: { username: true, name: true, isActive: true, isPrimaryAdmin: true },
       orderBy: { username: "asc" },
     });
     if (admins.length === 0) {
@@ -21,7 +21,7 @@ async function main() {
       return;
     }
     for (const admin of admins) {
-      console.log(`${admin.username}\t${admin.name}\t${admin.isActive ? "active" : "inactive"}`);
+      console.log(`${admin.username}\t${admin.name}\t${admin.isActive ? "active" : "inactive"}${admin.isPrimaryAdmin ? "\tprimary" : ""}`);
     }
     return;
   }
@@ -36,7 +36,7 @@ async function main() {
   if (password.includes("\n") || password.includes("\r")) throw new Error("The password must not contain a line break.");
 
   const admin = await prisma.user.findUnique({ where: { username } });
-  if (!admin || admin.role !== "ADMIN") {
+  if (!admin || admin.role !== "ADMIN" || admin.deletedAt) {
     throw new Error("Administrator account not found. No account was changed.");
   }
 

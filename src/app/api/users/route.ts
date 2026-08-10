@@ -14,9 +14,10 @@ export async function GET() {
 
   const [users, employees] = await Promise.all([
     prisma.user.findMany({
+      where: { deletedAt: null },
       select: {
         id: true, name: true, username: true, role: true, employeeId: true,
-        isActive: true, createdAt: true,
+        isActive: true, isPrimaryAdmin: true, createdAt: true,
         employee: { select: { employeeCode: true, fullName: true, isActive: true } },
       },
       orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await prisma.user.create({
       data: { name, username, passwordHash: await hash(password, 12), role, employeeId, isActive: true },
-      select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true },
+      select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true, isPrimaryAdmin: true },
     });
     return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (caught: unknown) {
