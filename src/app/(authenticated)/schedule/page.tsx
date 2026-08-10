@@ -1,13 +1,25 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useSession } from "next-auth/react";
-import { format } from "date-fns";
 import Link from "next/link";
+import { useLang } from "@/lib/i18n";
+
+function calendarDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function apiDateKey(value: string) {
+  return value.slice(0, 10);
+}
+
+function inclusiveDayCount(startKey: string, endKey: string) {
+  const start = Date.parse(`${startKey}T00:00:00Z`);
+  const end = Date.parse(`${endKey}T00:00:00Z`);
+  return Math.floor((end - start) / 86_400_000) + 1;
+}
 
 export default function SchedulePage() {
-  const { data: session } = useSession();
-  const user = session?.user as any;
+  const { lang } = useLang();
 
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth());
@@ -15,20 +27,34 @@ export default function SchedulePage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
 
   useEffect(() => {
+    let cancelled = false;
+
     fetch(`/api/schedule?month=${monthStr}`)
-      .then((response) => response.json())
+      .then(async (response) => {
+        const json = await response.json();
+        if (!response.ok || !json.success) throw new Error("Unable to load schedule");
+        return json;
+      })
       .then((json) => {
-        if (json.success) {
-          setTasks(json.data.tasks);
-          setEmployees(json.data.employees);
-        }
-        setLoading(false);
+        if (cancelled) return;
+        setTasks(json.data.tasks);
+        setEmployees(json.data.employees);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-  }, [monthStr]);
+
+    return () => { cancelled = true; };
+  }, [monthStr, reloadToken]);
 
   const daysInMonth = useMemo(() => {
     const days = [];
@@ -40,13 +66,31 @@ export default function SchedulePage() {
   }, [currentMonth, currentYear]);
 
   const prevMonth = () => {
+    setLoading(true);
+    setLoadFailed(false);
     if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(currentYear - 1); }
     else setCurrentMonth(currentMonth - 1);
   };
 
   const nextMonth = () => {
+    setLoading(true);
+    setLoadFailed(false);
     if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(currentYear + 1); }
     else setCurrentMonth(currentMonth + 1);
+  };
+
+  const goToToday = () => {
+    setLoading(true);
+    setLoadFailed(false);
+    setCurrentMonth(today.getMonth());
+    setCurrentYear(today.getFullYear());
+    setReloadToken((value) => value + 1);
+  };
+
+  const retry = () => {
+    setLoading(true);
+    setLoadFailed(false);
+    setReloadToken((value) => value + 1);
   };
 
   const today = new Date();
@@ -63,12 +107,23 @@ export default function SchedulePage() {
             Tháng {currentMonth + 1}/{currentYear}
           </span>
           <button onClick={nextMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Tiếp →</button>
-          <button onClick={() => { setCurrentMonth(today.getMonth()); setCurrentYear(today.getFullYear()); }} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Hôm nay</button>
+          <button onClick={goToToday} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Hôm nay</button>
         </div>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Đang tải lịch...</div>
+      ) : loadFailed ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-700">
+          <p>{lang === "ja" ? "スケジュールを読み込めません。" : "Không thể tải lịch phân công."}</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-3 rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+          >
+            {lang === "ja" ? "再試行" : "Thử lại"}
+          </button>
+        </div>
       ) : (
         <div className="bg-white rounded-lg border overflow-auto">
           <div className="min-w-[800px]">
@@ -98,13 +153,19 @@ export default function SchedulePage() {
                     </div>
                   </div>
                   {daysInMonth.map((d, di) => {
+                    const dayKey = calendarDateKey(d);
+                    const monthStartKey = `${monthStr}-01`;
+                    const monthEndKey = `${monthStr}-${String(daysInMonth.length).padStart(2, "0")}`;
                     const taskHere = empTasks.find((t: any) => {
-                      const start = new Date(t.plannedStartDate);
-                      const end = new Date(t.plannedEndDate);
-                      return d >= start && d <= end;
+                      const startKey = apiDateKey(t.plannedStartDate);
+                      const endKey = apiDateKey(t.plannedEndDate);
+                      return dayKey >= startKey && dayKey <= endKey;
                     });
-                    const isStart = taskHere && new Date(taskHere.plannedStartDate).toDateString() === d.toDateString();
-                    const isEnd = taskHere && new Date(taskHere.plannedEndDate).toDateString() === d.toDateString();
+                    const taskStartKey = taskHere ? apiDateKey(taskHere.plannedStartDate) : "";
+                    const taskEndKey = taskHere ? apiDateKey(taskHere.plannedEndDate) : "";
+                    const visibleStartKey = taskStartKey < monthStartKey ? monthStartKey : taskStartKey;
+                    const visibleEndKey = taskEndKey > monthEndKey ? monthEndKey : taskEndKey;
+                    const isStart = Boolean(taskHere && dayKey === visibleStartKey);
                     return (
                       <div key={di} className={`border-r relative ${isWeekend(d) ? "bg-gray-50" : ""} ${isToday(d) ? "bg-blue-50" : ""}`}>
                         {isStart && (
@@ -113,7 +174,7 @@ export default function SchedulePage() {
                             className="absolute inset-y-0 left-0 rounded-full hover:opacity-80 transition-opacity"
                             style={{
                               backgroundColor: taskHere.product?.color || "#6B7280",
-                              width: `${(new Date(taskHere.plannedEndDate).getDate() - new Date(taskHere.plannedStartDate).getDate() + 1) * 100}%`,
+                              width: `${inclusiveDayCount(visibleStartKey, visibleEndKey) * 100}%`,
                               minWidth: "100%",
                               maxWidth: "none",
                               height: "22px",

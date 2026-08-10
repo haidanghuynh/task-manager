@@ -17,6 +17,7 @@ export default function EmployeeDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [teams, setTeams] = useState<any[]>([]);
+  const [error, setError] = useState("");
 
   const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isAdmin = user?.role === "ADMIN";
@@ -32,11 +33,17 @@ export default function EmployeeDetailPage() {
   }
 
   async function handleSave() {
-    await fetch(`/api/employees/${id}`, {
+    setError("");
+    const response = await fetch(`/api/employees/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editForm),
     });
+    const json = await response.json();
+    if (!json.success) {
+      setError(json.error?.message || "Không thể cập nhật nhân viên.");
+      return;
+    }
     setEditing(false);
     fetchEmp();
   }
@@ -70,9 +77,19 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
       {editing ? (
         <div className="bg-white p-6 rounded-lg border space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            <div><label className="text-xs text-gray-500">Mã nhân viên</label><input
+              value={editForm.employeeCode || ""}
+              onChange={e => setEditForm({...editForm, employeeCode: e.target.value})}
+              maxLength={50}
+              className="w-full border rounded px-3 py-1.5 text-sm mt-1 font-mono"
+              placeholder="Ví dụ: NV-001"
+              required
+            /></div>
             <div><label className="text-xs text-gray-500">Họ và tên</label><input value={editForm.fullName} onChange={e => setEditForm({...editForm, fullName: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm mt-1" /></div>
             <div><label className="text-xs text-gray-500">Email</label><input value={editForm.email || ""} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm mt-1" /></div>
             <div><label className="text-xs text-gray-500">Bộ phận</label><input value={editForm.department || ""} onChange={e => setEditForm({...editForm, department: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm mt-1" /></div>

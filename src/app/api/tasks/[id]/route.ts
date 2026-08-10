@@ -126,7 +126,7 @@ export async function PATCH(
       }
     }
 
-    const trackedFields = ["status", "progress", "priority", "plannedStartDate", "plannedEndDate", "actualEndDate", "productId"] as const;
+    const trackedFields = ["taskCode", "status", "progress", "priority", "plannedStartDate", "plannedEndDate", "actualEndDate", "productId"] as const;
     const changes = trackedFields.flatMap((field) => {
       const newValue = (updateData as Record<string, unknown>)[field];
       if (newValue === undefined) return [];

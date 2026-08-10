@@ -28,9 +28,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json();
-  const allowed = ["fullName", "email", "department", "position", "teamId", "isActive"];
+  const allowed = ["employeeCode", "fullName", "email", "department", "position", "teamId", "isActive"];
   const data: any = {};
   for (const f of allowed) if (body[f] !== undefined) data[f] = body[f];
+
+  if (data.employeeCode !== undefined) {
+    data.employeeCode = String(data.employeeCode).trim();
+    if (!/^[A-Za-z0-9._-]{1,50}$/.test(data.employeeCode)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Mã nhân viên phải có 1-50 ký tự và chỉ gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.",
+          },
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   const emp = await prisma.$transaction(async (tx) => {
     const updated = await tx.employee.update({ where: { id }, data, include: { team: true } });

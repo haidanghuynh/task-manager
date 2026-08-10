@@ -43,6 +43,13 @@ export const createTaskSchema = z
   );
 
 export const updateTaskSchema = z.object({
+  taskCode: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[A-Za-z0-9._-]+$/, "Task code may contain letters, numbers, dots, underscores, and hyphens")
+    .optional(),
   taskName: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
   productId: z.string().min(1).optional(),

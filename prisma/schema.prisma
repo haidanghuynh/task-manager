@@ -100,7 +100,7 @@ model Product {
 
 model Task {
   id                String    @id @default(cuid())
-  taskCode          String    @unique
+  taskCode          String
   taskName          String
   description       String?
   productId         String
@@ -127,6 +127,7 @@ model Task {
   comments          TaskComment[]
 
   @@index([productId])
+  @@index([taskCode])
   @@index([currentAssigneeId])
   @@index([status])
   @@index([plannedStartDate, plannedEndDate])

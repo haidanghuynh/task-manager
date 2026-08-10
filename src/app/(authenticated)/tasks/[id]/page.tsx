@@ -138,6 +138,18 @@ export default function TaskDetailPage() {
         <div className="space-y-4 rounded-lg border bg-white p-6">
           <h3 className="font-semibold text-gray-900">Chỉnh sửa task</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="text-sm md:col-span-2">Mã task
+              <input
+                value={editData.taskCode || ""}
+                onChange={(e) => setEditData({ ...editData, taskCode: e.target.value })}
+                maxLength={100}
+                pattern="[A-Za-z0-9._-]+"
+                title="Có thể dùng chữ, số, dấu chấm, gạch dưới và gạch ngang"
+                className="mt-1 w-full rounded border px-3 py-2 font-mono"
+                placeholder="Ví dụ: ZONE-2.20.2"
+                required
+              />
+            </label>
             <label className="text-sm md:col-span-2">Tên task
               <input value={editData.taskName || ""} onChange={(e) => setEditData({ ...editData, taskName: e.target.value })} className="mt-1 w-full rounded border px-3 py-2" />
             </label>
