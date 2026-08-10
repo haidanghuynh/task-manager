@@ -16,6 +16,7 @@ BACKUP_TIMER_FILE="/etc/systemd/system/task-manager-backup.timer"
 NGINX_FILE="/etc/nginx/conf.d/task-manager.conf"
 NODE_VERSION="22.22.3"
 APP_PORT="3000"
+APP_PATH="/usr/local/bin:/usr/bin:/bin"
 ASSUME_YES=0
 IP_ADDRESS=""
 DOMAIN_NAME=""
@@ -204,8 +205,8 @@ ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/npx" /usr/local/bin/npx
 say "[3/9] Tạo user và thư mục dịch vụ..."
 getent group "$APP_GROUP" >/dev/null || groupadd --system "$APP_GROUP"
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --gid "$APP_GROUP" --home-dir "$APP_DIR" --shell /sbin/nologin "$APP_USER"
-runuser -u "$APP_USER" -- /usr/local/bin/node --version >/dev/null || fail "User $APP_USER không chạy được Node.js."
-runuser -u "$APP_USER" -- /usr/local/bin/npm --version >/dev/null || fail "User $APP_USER không chạy được npm."
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" /usr/local/bin/node --version >/dev/null || fail "User $APP_USER không chạy được Node.js."
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" /usr/local/bin/npm --version >/dev/null || fail "User $APP_USER không chạy được npm."
 mkdir -p "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR" "$ENV_DIR"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -225,7 +226,7 @@ rsync -a --delete \
   --exclude='prisma/*.db' --exclude='prisma/*.db-journal' \
   "${SOURCE_DIR}/" "${APP_DIR}/"
 chown -R "$APP_USER:$APP_GROUP" "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR"
-runuser -u "$APP_USER" -- bash -lc "cd '$APP_DIR' && /usr/local/bin/npm ci"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; cd '$APP_DIR' && /usr/local/bin/npm ci"
 
 say "[5/9] Cấu hình môi trường và database..."
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -254,10 +255,10 @@ else
 fi
 chown root:"$APP_GROUP" "$ENV_FILE"
 chmod 0640 "$ENV_FILE"
-runuser -u "$APP_USER" -- bash -lc "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npx prisma generate; /usr/local/bin/npx prisma migrate deploy"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npx prisma generate; /usr/local/bin/npx prisma migrate deploy"
 
 set +e
-runuser -u "$APP_USER" -- bash -lc "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run bootstrap-admin -- --check"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run bootstrap-admin -- --check"
 ADMIN_CHECK_STATUS=$?
 set -e
 if (( ADMIN_CHECK_STATUS == 2 )); then
@@ -281,17 +282,18 @@ if (( ADMIN_CHECK_STATUS == 2 )); then
     done
   fi
   runuser -u "$APP_USER" -- env \
+    PATH="$APP_PATH" \
     BOOTSTRAP_ADMIN_USERNAME="$ADMIN_USERNAME" \
     BOOTSTRAP_ADMIN_NAME="$ADMIN_NAME" \
     BOOTSTRAP_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-    bash -lc "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run bootstrap-admin"
+    bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run bootstrap-admin"
   unset ADMIN_PASSWORD ADMIN_PASSWORD_CONFIRM TASK_MANAGER_ADMIN_PASSWORD || true
 elif (( ADMIN_CHECK_STATUS != 0 )); then
   fail "Không kiểm tra được tài khoản Admin (mã lỗi ${ADMIN_CHECK_STATUS})."
 fi
 
 say "[6/9] Build ứng dụng..."
-runuser -u "$APP_USER" -- bash -lc "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run build"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run build"
 
 say "[7/9] Cấu hình systemd và sao lưu tự động..."
 install -m 0700 -o root -g root "${APP_DIR}/deploy/almalinux9/reset-admin-password.sh" /usr/local/sbin/task-manager-reset-admin-password
@@ -307,6 +309,7 @@ User=${APP_USER}
 Group=${APP_GROUP}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
+Environment=PATH=${APP_PATH}
 ExecStart=/usr/local/bin/npm run start -- --hostname 127.0.0.1 --port ${APP_PORT}
 Restart=on-failure
 RestartSec=5
