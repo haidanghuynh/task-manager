@@ -41,8 +41,8 @@ async function main() {
   if (!/^[a-z0-9._-]{3,50}$/.test(username)) {
     throw new Error("BOOTSTRAP_ADMIN_USERNAME must be 3-50 characters and use only letters, numbers, dot, underscore or hyphen.");
   }
-  if (password.length < 12) {
-    throw new Error("BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters.");
+  if (password.length < 8) {
+    throw new Error("BOOTSTRAP_ADMIN_PASSWORD must contain at least 8 characters.");
   }
 
   const existingUser = await prisma.user.findUnique({ where: { username } });

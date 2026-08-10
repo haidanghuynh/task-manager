@@ -18,7 +18,7 @@ const copy = {
     denied: "Chỉ Admin mới có quyền quản lý tài khoản.", loading: "Đang tải...",
     name: "Tên hiển thị", username: "Tên đăng nhập", password: "Mật khẩu",
     usernameHint: "3-50 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang",
-    passwordHint: "Ít nhất 12 ký tự", newPassword: "Mật khẩu mới (để trống nếu không đổi)",
+    passwordHint: "Ít nhất 8 ký tự", newPassword: "Mật khẩu mới (để trống nếu không đổi)",
     role: "Quyền", employee: "Nhân viên liên kết", selectEmployee: "Chọn nhân viên...",
     roleAdmin: "Quản trị viên", roleManager: "Quản lý", roleEmployee: "Nhân viên",
     noEmployee: "Không liên kết", status: "Trạng thái", active: "Hoạt động", inactive: "Đã khóa",
@@ -30,7 +30,7 @@ const copy = {
     employeeRequired: "Tài khoản Nhân viên phải liên kết với một hồ sơ nhân viên.",
     duplicate: "Tên đăng nhập hoặc nhân viên này đã được liên kết với tài khoản khác.",
     invalidUsername: "Tên đăng nhập phải có 3-50 ký tự và chỉ gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.",
-    weakPassword: "Mật khẩu phải có ít nhất 12 ký tự.",
+    weakPassword: "Mật khẩu phải có ít nhất 8 ký tự.",
     lastAdmin: "Không thể khóa hoặc hạ quyền Admin cuối cùng.",
     selfLockout: "Bạn không thể tự khóa hoặc bỏ quyền Admin của chính mình.",
     invalidEmployee: "Nhân viên không tồn tại hoặc đã ngừng hoạt động.",
@@ -40,7 +40,7 @@ const copy = {
     denied: "アカウントを管理できるのは管理者のみです。", loading: "読み込み中...",
     name: "表示名", username: "ユーザー名", password: "パスワード",
     usernameHint: "3～50文字：英数字、ピリオド、アンダースコア、ハイフン",
-    passwordHint: "12文字以上", newPassword: "新しいパスワード（変更しない場合は空欄）",
+    passwordHint: "8文字以上", newPassword: "新しいパスワード（変更しない場合は空欄）",
     role: "権限", employee: "連携する社員", selectEmployee: "社員を選択...",
     roleAdmin: "管理者", roleManager: "マネージャー", roleEmployee: "社員",
     noEmployee: "連携なし", status: "ステータス", active: "有効", inactive: "ロック中",
@@ -52,7 +52,7 @@ const copy = {
     employeeRequired: "社員アカウントは社員情報との連携が必要です。",
     duplicate: "このユーザー名または社員は別のアカウントに連携されています。",
     invalidUsername: "ユーザー名は3～50文字で、英数字・ピリオド・アンダースコア・ハイフンのみ使用できます。",
-    weakPassword: "パスワードは12文字以上で入力してください。",
+    weakPassword: "パスワードは8文字以上で入力してください。",
     lastAdmin: "最後の有効な管理者はロックまたは降格できません。",
     selfLockout: "自分のアカウントをロックしたり、管理者権限を外したりすることはできません。",
     invalidEmployee: "社員が存在しないか、無効になっています。",
@@ -170,7 +170,7 @@ export default function AccountsPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm"><span>{text.name}</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{text.username}</span><input required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]+" autoComplete="username" value={form.username} placeholder={text.usernameHint} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })} className="w-full rounded border px-3 py-2" /></label>
-            <label className="space-y-1 text-sm"><span>{editing ? text.newPassword : text.password}</span><input required={!editing} minLength={12} type="password" value={form.password} placeholder={text.passwordHint} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
+            <label className="space-y-1 text-sm"><span>{editing ? text.newPassword : text.password}</span><input required={!editing} minLength={8} type="password" value={form.password} placeholder={text.passwordHint} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{text.role}</span><select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, employeeId: e.target.value === "EMPLOYEE" ? form.employeeId : "" })} className="w-full rounded border px-3 py-2"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
             {form.role === "EMPLOYEE" && <label className="space-y-1 text-sm md:col-span-2"><span>{text.employee}</span><select required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.selectEmployee}</option>{employeeOptions.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} — {employee.fullName}</option>)}</select></label>}
           </div>

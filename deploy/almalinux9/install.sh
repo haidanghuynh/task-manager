@@ -267,10 +267,10 @@ if (( ADMIN_CHECK_STATUS == 2 )); then
   if [[ -z "$ADMIN_PASSWORD" ]]; then
     [[ -t 0 ]] || fail "Thiếu TASK_MANAGER_ADMIN_PASSWORD."
     while true; do
-      read -r -s -p "Mật khẩu Admin (ít nhất 12 ký tự): " ADMIN_PASSWORD; say ""
+      read -r -s -p "Mật khẩu Admin (ít nhất 8 ký tự): " ADMIN_PASSWORD; say ""
       read -r -s -p "Nhập lại mật khẩu: " ADMIN_PASSWORD_CONFIRM; say ""
       [[ "$ADMIN_PASSWORD" == "$ADMIN_PASSWORD_CONFIRM" ]] || { say "Hai mật khẩu không khớp."; continue; }
-      (( ${#ADMIN_PASSWORD} >= 12 )) || { say "Mật khẩu phải có ít nhất 12 ký tự."; continue; }
+      (( ${#ADMIN_PASSWORD} >= 8 )) || { say "Mật khẩu phải có ít nhất 8 ký tự."; continue; }
       break
     done
   fi

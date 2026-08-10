@@ -22,12 +22,12 @@ read -r -p "Username Admin cần đặt lại mật khẩu: " ADMIN_USERNAME
 [[ -n "$ADMIN_USERNAME" ]] || fail "Username không được để trống."
 
 while true; do
-  IFS= read -r -s -p "Mật khẩu mới (ít nhất 12 ký tự): " ADMIN_PASSWORD
+  IFS= read -r -s -p "Mật khẩu mới (ít nhất 8 ký tự): " ADMIN_PASSWORD
   printf '\n'
   IFS= read -r -s -p "Nhập lại mật khẩu mới: " ADMIN_PASSWORD_CONFIRM
   printf '\n'
   [[ "$ADMIN_PASSWORD" == "$ADMIN_PASSWORD_CONFIRM" ]] || { printf '%s\n' "Hai mật khẩu không khớp."; continue; }
-  (( ${#ADMIN_PASSWORD} >= 12 )) || { printf '%s\n' "Mật khẩu phải có ít nhất 12 ký tự."; continue; }
+  (( ${#ADMIN_PASSWORD} >= 8 )) || { printf '%s\n' "Mật khẩu phải có ít nhất 8 ký tự."; continue; }
   [[ "$ADMIN_PASSWORD" != *$'\n'* && "$ADMIN_PASSWORD" != *$'\r'* ]] || { printf '%s\n' "Mật khẩu không được chứa ký tự xuống dòng."; continue; }
   break
 done

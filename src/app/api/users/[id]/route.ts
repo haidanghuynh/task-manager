@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { isActive: true } });
     if (!employee?.isActive) return error(400, "INVALID_EMPLOYEE", "Employee does not exist or is inactive");
   }
-  if (password && password.length < 12) return error(400, "WEAK_PASSWORD", "Password must contain at least 12 characters");
+  if (password && password.length < 8) return error(400, "WEAK_PASSWORD", "Password must contain at least 8 characters");
   if (id === currentUser.id && (!isActive || role !== "ADMIN")) {
     return error(400, "SELF_LOCKOUT", "You cannot disable or remove Admin rights from your own account");
   }

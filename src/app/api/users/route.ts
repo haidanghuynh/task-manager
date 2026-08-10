@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   if (!name || !/^[a-z0-9._-]{3,50}$/.test(username)) {
     return error(400, "VALIDATION_ERROR", "Name and a valid username are required");
   }
-  if (password.length < 12) return error(400, "WEAK_PASSWORD", "Password must contain at least 12 characters");
+  if (password.length < 8) return error(400, "WEAK_PASSWORD", "Password must contain at least 8 characters");
   if (!APP_ROLES.includes(role)) return error(400, "INVALID_ROLE", "Invalid role");
   if (role === "EMPLOYEE" && !employeeId) {
     return error(400, "EMPLOYEE_REQUIRED", "Employee accounts must be linked to an employee");

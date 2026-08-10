@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
@@ -43,8 +44,8 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-gray-900 text-white flex flex-col">
       <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-700">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-sm">
-          TM
+        <div className="flex h-9 w-[76px] shrink-0 items-center justify-center rounded-lg bg-white px-1.5 shadow-sm">
+          <Image src="/logo-qualitia.svg" alt="Qualitia" width={101} height={48} priority unoptimized className="h-auto w-full" />
         </div>
         <div>
           <h1 className="text-sm font-semibold">Task Manager</h1>

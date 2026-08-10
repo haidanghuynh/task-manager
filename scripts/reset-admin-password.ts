@@ -32,7 +32,7 @@ async function main() {
   // The shell wrapper sends the password through stdin so it is not exposed in
   // command-line arguments or shell history.
   const password = readFileSync(0, "utf8");
-  if (password.length < 12) throw new Error("The new password must contain at least 12 characters.");
+  if (password.length < 8) throw new Error("The new password must contain at least 8 characters.");
   if (password.includes("\n") || password.includes("\r")) throw new Error("The password must not contain a line break.");
 
   const admin = await prisma.user.findUnique({ where: { username } });

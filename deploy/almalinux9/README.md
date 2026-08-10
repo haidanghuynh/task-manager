@@ -29,7 +29,7 @@ Domain nội bộ [bỏ trống để dùng IP]: task.intra.example
 Nhấn Enter để nhận giá trị trong ngoặc. Ở màn hình tổng kết, nhấn Enter để bắt
 đầu, nhập `back` để sửa IP/domain, hoặc `cancel` để thoát mà chưa thay đổi máy.
 
-Trên database mới, nhập username, tên và mật khẩu (tối thiểu 12 ký tự) cho Admin
+Trên database mới, nhập username, tên và mật khẩu (tối thiểu 8 ký tự) cho Admin
 đầu tiên. Đây là tài khoản đăng nhập web, không phải tài khoản quản trị Linux hay
 DNS.
 
@@ -86,7 +86,7 @@ sudo task-manager-reset-admin-password
 
 Lệnh sẽ liệt kê các Admin, hỏi username, sau đó yêu cầu nhập mật khẩu mới hai
 lần. Mật khẩu không hiển thị trên màn hình, không được đưa vào tham số dòng lệnh
-và phải có ít nhất 12 ký tự. Không cần restart ứng dụng sau khi đổi.
+và phải có ít nhất 8 ký tự. Không cần restart ứng dụng sau khi đổi.
 
 Nếu chưa chạy installer, có thể gọi trực tiếp từ source:
 
