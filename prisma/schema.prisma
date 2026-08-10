@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique @map("email")
+  passwordHash String
+  role         String   @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
+  employeeId   String?  @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee       Employee?               @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  createdTasks   Task[]                  @relation("TaskCreatedBy")
+  statusChanges  TaskStatusHistory[]     @relation("StatusChangedBy")
+  changeLogs     TaskChangeLog[]         @relation("ChangeLogChangedBy")
+  comments       TaskComment[]           @relation("CommentAuthor")
+  assignmentsAs  TaskAssignmentHistory[] @relation("AssignedBy")
+  commentDeletes TaskComment[]           @relation("CommentDeletedBy")
+
+  @@map("users")
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  employeeCode String
+  fullName     String
+  email        String?
+  department   String   @default("")
+  position     String   @default("")
+  teamId       String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user              User?                    @relation
+  team              Team?                    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  ledTeams          Team[]                   @relation("TeamLead")
+  tasks             Task[]                   @relation("TaskAssignee")
+  assignmentHistory TaskAssignmentHistory[]  @relation("AssignmentEmployee")
+  teamMemberships   TeamMember[]
+
+  @@map("employees")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String   @default("🐉")
+  leadId      String?  @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead     Employee?    @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
+  members  TeamMember[]
+  employees Employee[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id         String   @id @default(cuid())
+  teamId     String
+  employeeId String
+  joinedAt   DateTime @default(now())
+
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, employeeId])
+  @@map("team_members")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  color     String   @default("#6B7280")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
+
+  @@map("products")
+}
+
+model Task {
+  id                String    @id @default(cuid())
+  taskCode          String    @unique
+  taskName          String
+  description       String?
+  productId         String
+  currentAssigneeId String?
+  createdById       String
+  plannedStartDate  DateTime
+  plannedEndDate    DateTime
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  status            String    @default("PLANNED") // PLANNED, IN_PROGRESS, WAITING, COMPLETED, CANCELLED
+  progress          Int       @default(0)
+  priority          String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  note              String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  product           Product                  @relation(fields: [productId], references: [id])
+  currentAssignee   Employee?                @relation("TaskAssignee", fields: [currentAssigneeId], references: [id], onDelete: SetNull)
+  createdBy         User                     @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  assignmentHistory TaskAssignmentHistory[]
+  statusHistory     TaskStatusHistory[]
+  changeLogs        TaskChangeLog[]
+  comments          TaskComment[]
+
+  @@index([productId])
+  @@index([currentAssigneeId])
+  @@index([status])
+  @@index([plannedStartDate, plannedEndDate])
+  @@index([deletedAt])
+  @@map("tasks")
+}
+
+model TaskAssignmentHistory {
+  id            String    @id @default(cuid())
+  taskId        String
+  employeeId    String
+  assignedById  String
+  assignedFrom  DateTime
+  assignedUntil DateTime?
+  reason        String?
+  createdAt     DateTime  @default(now())
+
+  task       Task     @relation(fields: [taskId], references: [id])
+  employee   Employee @relation("AssignmentEmployee", fields: [employeeId], references: [id])
+  assignedBy User     @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@index([taskId])
+  @@index([employeeId])
+  @@map("task_assignment_history")
+}
+
+model TaskStatusHistory {
+  id          String   @id @default(cuid())
+  taskId      String
+  oldStatus   String
+  newStatus   String
+  changedById String
+  note        String?
+  changedAt   DateTime @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id])
+  changedBy User @relation("StatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_status_history")
+}
+
+model TaskChangeLog {
+  id          String   @id @default(cuid())
+  taskId      String
+  changedById String
+  fieldName   String
+  oldValue    String?
+  newValue    String?
+  changedAt   DateTime @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id])
+  changedBy User @relation("ChangeLogChangedBy", fields: [changedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_change_logs")
+}
+
+model TaskComment {
+  id          String    @id @default(cuid())
+  taskId      String
+  authorId    String
+  content     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+
+  task      Task  @relation(fields: [taskId], references: [id])
+  author    User  @relation("CommentAuthor", fields: [authorId], references: [id])
+  deletedBy User? @relation("CommentDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_comments")
+}
