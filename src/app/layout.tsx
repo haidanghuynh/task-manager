@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin", "vietnamese"] });
 
 export const metadata: Metadata = {
-  title: "Task Manager - Zone / Gate / Hunter",
+  title: "Task Manager",
   description: "Quản lý lịch phân công task cho nhân viên",
 };
 

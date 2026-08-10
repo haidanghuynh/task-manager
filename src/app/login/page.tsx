@@ -85,11 +85,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center text-xs text-gray-400">
-          <p>Demo: admin / password123</p>
-          <p>Demo: manager / password123</p>
-          <p>Demo: employee1 / password123</p>
-        </div>
       </div>
     </div>
   );
