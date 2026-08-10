@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useLang } from "@/lib/i18n";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const isAdmin = user?.role === "ADMIN";
+  const { lang } = useLang();
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,20 @@ export default function SettingsPage() {
   async function handleDelete(id: string) {
     if (!confirm("Bạn có chắc muốn xóa/vô hiệu hóa sản phẩm này?")) return;
     await fetch(`/api/products?id=${id}`, { method: "DELETE" });
+    fetchProducts();
+  }
+
+  async function handleActivate(id: string) {
+    const response = await fetch(`/api/products?id=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: true }),
+    });
+    const result = await response.json();
+    if (!result.success) {
+      alert(lang === "ja" ? "製品を有効化できません。" : "Không thể kích hoạt lại sản phẩm.");
+      return;
+    }
     fetchProducts();
   }
 
@@ -98,6 +114,11 @@ export default function SettingsPage() {
                   {p.isActive ? "Active" : "Inactive"}
                 </span>
                 <button onClick={() => startEdit(p)} className="text-xs text-blue-600 hover:underline">Sửa</button>
+                {!p.isActive && (
+                  <button onClick={() => handleActivate(p.id)} className="text-xs text-green-600 hover:underline">
+                    {lang === "ja" ? "有効化" : "Kích hoạt"}
+                  </button>
+                )}
                 <button onClick={() => handleDelete(p.id)} className="text-xs text-red-600 hover:underline">Xóa</button>
               </div>
             ))}

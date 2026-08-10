@@ -2,7 +2,6 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
-import { generateTaskCode } from "@/services/task.service";
 
 const statuses = new Set(["PLANNED", "IN_PROGRESS", "WAITING", "COMPLETED", "CANCELLED"]);
 const priorities = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
@@ -69,7 +68,8 @@ export async function POST(req: NextRequest) {
     else if (!statuses.has(status)) reason = `Invalid status: ${status}`;
     else if (!priorities.has(priority)) reason = `Invalid priority: ${priority}`;
     else if (!Number.isInteger(progress) || progress < 0 || progress > 100) reason = "Progress must be an integer from 0 to 100";
-    else if (requestedCode && !/^[A-Za-z0-9._-]{1,100}$/.test(requestedCode)) reason = "Invalid task code";
+    else if (!requestedCode) reason = "Task code is required";
+    else if (!/^[A-Za-z0-9._-]{1,100}$/.test(requestedCode)) reason = "Invalid task code";
 
     if (reason) {
       errors.push({ row: rowNumber, reason });
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const taskCode = requestedCode || await generateTaskCode(product!.code);
+      const taskCode = requestedCode;
       await prisma.$transaction(async (tx) => {
         const task = await tx.task.create({
           data: {

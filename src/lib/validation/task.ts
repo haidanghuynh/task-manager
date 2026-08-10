@@ -21,6 +21,15 @@ export const createTaskSchema = z
     taskName: z.string().trim().min(1).max(200),
     description: z.string().trim().max(5000).optional().nullable(),
     productId: z.string().min(1),
+    taskNumber: z
+      .string()
+      .trim()
+      .max(40)
+      .refine((value) => value === "" || /^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$/.test(value), {
+        message: "Task suffix may contain letters, numbers, dots, underscores, and hyphens",
+      })
+      .optional()
+      .default(""),
     assigneeId: z.string().min(1),
     plannedStartDate: dateString,
     plannedEndDate: dateString.optional().nullable(),

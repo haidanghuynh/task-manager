@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
-import { generateTaskCode, checkOverlap } from "@/services/task.service";
+import { buildTaskCode, checkOverlap } from "@/services/task.service";
 import { createTaskSchema } from "@/lib/validation/task";
 
 export async function GET(req: NextRequest) {
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const { taskName, description, productId, assigneeId, plannedStartDate: start, plannedEndDate, status, priority, note } = parsed.data;
+    const { taskName, description, productId, taskNumber, assigneeId, plannedStartDate: start, plannedEndDate, status, priority, note } = parsed.data;
 
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product?.isActive) {
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
 
     const end = plannedEndDate ?? start;
 
-    const taskCode = await generateTaskCode(product.code);
+    const taskCode = buildTaskCode(product.code, taskNumber);
     const overlaps = await checkOverlap(assigneeId, start, end);
 
     const task = await prisma.$transaction(async (tx) => {
@@ -261,7 +261,16 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ success: false, error: { code: "CONFLICT", message: "Task code conflict; please retry" } }, { status: 409 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "TASK_CODE_EXISTS",
+            message: "Mã task đã tồn tại. Vui lòng nhập phần mã phía sau khác; nếu đang để trống, hãy nhập thêm phần phía sau.",
+          },
+        },
+        { status: 409 },
+      );
     }
     console.error("Failed to create task", error);
     return NextResponse.json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to create task" } }, { status: 500 });

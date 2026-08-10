@@ -1,30 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-export async function generateTaskCode(productCode: string): Promise<string> {
-  const year = new Date().getFullYear();
+export function buildTaskCode(productCode: string, taskNumber?: string): string {
+  const prefix = productCode;
+  const number = taskNumber?.trim();
 
-  // Find the latest task code for this product and year
-  const latestTask = await prisma.task.findFirst({
-    where: {
-      taskCode: {
-        startsWith: `${productCode}-${year}-`,
-      },
-    },
-    orderBy: { taskCode: "desc" },
-    select: { taskCode: true },
-  });
+  if (!number) return prefix;
 
-  let sequence = 1;
-  if (latestTask) {
-    const parts = latestTask.taskCode.split("-");
-    const lastSeq = parseInt(parts[parts.length - 1], 10);
-    if (!isNaN(lastSeq)) {
-      sequence = lastSeq + 1;
-    }
-  }
-
-  return `${productCode}-${year}-${String(sequence).padStart(4, "0")}`;
+  return `${prefix}-${number}`;
 }
 
 export async function checkOverlap(

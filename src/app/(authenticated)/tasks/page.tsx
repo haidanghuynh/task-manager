@@ -165,6 +165,7 @@ export default function TasksPage() {
         ["Invalid priority", "Độ ưu tiên không hợp lệ", "優先度が無効です"],
         ["Progress must be", "Tiến độ phải là số nguyên từ 0 đến 100", "進捗は0～100の整数で入力してください"],
         ["Invalid task code", "Mã task không hợp lệ", "タスクコードが無効です"],
+        ["Task code is required", "Mã task là bắt buộc", "タスクコードは必須です"],
         ["Task code already exists", "Mã task đã tồn tại", "タスクコードは既に存在します"],
         ["Database error", "Lỗi database", "データベースエラー"],
       ];

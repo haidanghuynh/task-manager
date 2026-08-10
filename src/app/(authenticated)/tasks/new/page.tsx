@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useLang } from "@/lib/i18n";
 
 export default function NewTaskPage() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const router = useRouter();
+  const { lang } = useLang();
 
   const [products, setProducts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -18,6 +20,7 @@ export default function NewTaskPage() {
     taskName: "",
     description: "",
     productId: "",
+    taskNumber: "",
     assigneeId: "",
     plannedStartDate: "",
     plannedEndDate: "",
@@ -25,6 +28,11 @@ export default function NewTaskPage() {
     priority: "MEDIUM",
     note: "",
   });
+
+  const selectedProduct = products.find((product) => product.id === form.productId);
+  const taskCodePrefix = selectedProduct
+    ? selectedProduct.code
+    : "PRODUCT";
 
   useEffect(() => {
     fetch("/api/products").then(r => r.json()).then(j => j.success && setProducts(j.data));
@@ -58,7 +66,11 @@ export default function NewTaskPage() {
       }
       router.push(`/tasks/${json.data.task.id}`);
     } else {
-      setError(json.error?.message || "Có lỗi xảy ra");
+      setError(
+        json.error?.code === "TASK_CODE_EXISTS" && lang === "ja"
+          ? "タスクコードは既に存在します。別の末尾コードを入力してください。空欄の場合は末尾を追加してください。"
+          : json.error?.message || (lang === "ja" ? "エラーが発生しました" : "Có lỗi xảy ra"),
+      );
     }
   }
 
@@ -85,7 +97,7 @@ export default function NewTaskPage() {
             <select required value={form.productId} onChange={e => setForm({...form, productId: e.target.value})}
               className="w-full border rounded px-3 py-2 text-sm">
               <option value="">Chọn sản phẩm...</option>
-              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {products.filter((p) => p.isActive).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div>
@@ -96,6 +108,35 @@ export default function NewTaskPage() {
               {employees.filter((e: any) => e.isActive).map((e: any) => <option key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</option>)}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === "ja" ? "タスクコードの末尾（任意）" : "Phần sau mã task (không bắt buộc)"}
+          </label>
+          <div className="flex rounded border bg-white focus-within:ring-2 focus-within:ring-blue-500">
+            <span className="flex items-center border-r bg-gray-50 px-3 text-sm text-gray-600">
+              {taskCodePrefix}-
+            </span>
+            <input
+              type="text"
+              maxLength={40}
+              pattern="[A-Za-z0-9]+([._-][A-Za-z0-9]+)*"
+              title={lang === "ja" ? "英数字、ピリオド、アンダースコア、ハイフンを使用できます" : "Có thể dùng chữ, số, dấu chấm, gạch dưới và gạch ngang"}
+              value={form.taskNumber}
+              onChange={(e) => setForm({ ...form, taskNumber: e.target.value })}
+              className="min-w-0 flex-1 rounded-r px-3 py-2 text-sm outline-none"
+              placeholder={lang === "ja" ? "例：2.22.4" : "Ví dụ: 2.22.4"}
+              aria-label={lang === "ja" ? "タスクコードの末尾" : "Phần sau mã task"}
+            />
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            {lang === "ja" ? "コード：" : "Mã sẽ là "}
+            {form.taskNumber ? `${taskCodePrefix}-${form.taskNumber}` : taskCodePrefix}.
+            {lang === "ja"
+              ? " 末尾コードが不要な場合は空欄にしてください。タスクコードは一意である必要があります。"
+              : " Để trống nếu không cần phần mã phía sau; mã task phải là duy nhất."}
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
