@@ -193,6 +193,10 @@ curl --fail --location --silent --show-error "https://nodejs.org/dist/v${NODE_VE
 mkdir -p /usr/local/lib/nodejs
 rm -rf -- "/usr/local/lib/nodejs/${NODE_DIST}"
 tar -xJf "${TMP_DIR}/${NODE_DIST}.tar.xz" -C /usr/local/lib/nodejs
+# The installer runs with umask 027. Keep Node root-owned, but make its parent
+# and distribution tree traversable/readable by the unprivileged app user.
+chmod 0755 /usr/local/lib/nodejs
+chmod -R a+rX "/usr/local/lib/nodejs/${NODE_DIST}"
 ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/node" /usr/local/bin/node
 ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/npm" /usr/local/bin/npm
 ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/npx" /usr/local/bin/npx
@@ -200,6 +204,8 @@ ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/npx" /usr/local/bin/npx
 say "[3/9] Tạo user và thư mục dịch vụ..."
 getent group "$APP_GROUP" >/dev/null || groupadd --system "$APP_GROUP"
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --gid "$APP_GROUP" --home-dir "$APP_DIR" --shell /sbin/nologin "$APP_USER"
+runuser -u "$APP_USER" -- /usr/local/bin/node --version >/dev/null || fail "User $APP_USER không chạy được Node.js."
+runuser -u "$APP_USER" -- /usr/local/bin/npm --version >/dev/null || fail "User $APP_USER không chạy được npm."
 mkdir -p "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR" "$ENV_DIR"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
