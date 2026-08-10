@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,7 +34,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="relative min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <ThemeToggle className="absolute right-4 top-4 w-36 border border-gray-200 bg-white shadow-sm" />
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">Task Manager</h1>

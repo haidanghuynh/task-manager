@@ -16,6 +16,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -44,7 +45,7 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-gray-900 text-white flex flex-col">
       <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-700">
-        <div className="flex h-9 w-[76px] shrink-0 items-center justify-center rounded-lg bg-white px-1.5 shadow-sm">
+        <div className="theme-logo-surface flex h-9 w-[76px] shrink-0 items-center justify-center rounded-lg bg-white px-1.5 shadow-sm">
           <Image src="/logo-qualitia.svg" alt="Qualitia" width={101} height={48} priority unoptimized className="h-auto w-full" />
         </div>
         <div>
@@ -75,6 +76,11 @@ export function Sidebar() {
       </nav>
 
       <div className="px-3 py-4 border-t border-gray-700 space-y-2">
+        <ThemeToggle
+          lightLabel={lang === "ja" ? "ライト" : "Sáng"}
+          darkLabel={lang === "ja" ? "ダーク" : "Tối"}
+          className="mx-3 bg-gray-800"
+        />
         {/* Language toggle */}
         <div className="flex items-center gap-1 px-3">
           <button

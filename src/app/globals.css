@@ -3,6 +3,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --background: #0b1120;
+  --foreground: #e5e7eb;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,15 +19,71 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+:root[data-theme="dark"] * {
+  border-color: #374151;
+}
+
+:root[data-theme="dark"] .bg-white { background-color: #111827; }
+:root[data-theme="dark"] .bg-gray-50 { background-color: #0b1120; }
+:root[data-theme="dark"] .bg-gray-100 { background-color: #1f2937; }
+:root[data-theme="dark"] .bg-gray-200 { background-color: #374151; }
+:root[data-theme="dark"] .text-gray-900 { color: #f3f4f6; }
+:root[data-theme="dark"] .text-gray-700 { color: #d1d5db; }
+:root[data-theme="dark"] .text-gray-600 { color: #cbd5e1; }
+:root[data-theme="dark"] .text-gray-500,
+:root[data-theme="dark"] .text-gray-400 { color: #94a3b8; }
+:root[data-theme="dark"] .border-gray-200,
+:root[data-theme="dark"] .border-gray-300 { border-color: #374151; }
+:root[data-theme="dark"] .divide-y > :not(:last-child) { border-color: #374151; }
+:root[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: #1f2937; }
+:root[data-theme="dark"] .hover\:text-gray-700:hover { color: #f3f4f6; }
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background-color: #0f172a;
+  color: #f3f4f6;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: #64748b; }
+
+:root[data-theme="dark"] .bg-blue-50,
+:root[data-theme="dark"] .bg-blue-100 { background-color: #172554; }
+:root[data-theme="dark"] .text-blue-700 { color: #93c5fd; }
+:root[data-theme="dark"] .bg-green-50,
+:root[data-theme="dark"] .bg-green-100 { background-color: #052e16; }
+:root[data-theme="dark"] .text-green-700 { color: #86efac; }
+:root[data-theme="dark"] .bg-yellow-50 { background-color: #422006; }
+:root[data-theme="dark"] .text-yellow-700,
+:root[data-theme="dark"] .text-yellow-800 { color: #fde68a; }
+:root[data-theme="dark"] .bg-red-50 { background-color: #450a0a; }
+:root[data-theme="dark"] .text-red-700 { color: #fca5a5; }
+:root[data-theme="dark"] .border-red-200 { border-color: #7f1d1d; }
+:root[data-theme="dark"] .bg-orange-100 { background-color: #431407; }
+:root[data-theme="dark"] .text-orange-700 { color: #fdba74; }
+:root[data-theme="dark"] .bg-amber-50\/40 { background-color: rgb(69 26 3 / 0.35); }
+
+:root[data-theme="dark"] .theme-logo-surface { background-color: #ffffff; }
+:root[data-theme="dark"] .theme-toggle .bg-white { background-color: #f8fafc; color: #111827; }
+:root[data-theme="dark"] .recharts-cartesian-grid line { stroke: #334155; }
+:root[data-theme="dark"] .recharts-cartesian-axis-tick-value,
+:root[data-theme="dark"] .recharts-legend-item-text { fill: #cbd5e1; color: #cbd5e1 !important; }
+:root[data-theme="dark"] .recharts-default-tooltip {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
 }
