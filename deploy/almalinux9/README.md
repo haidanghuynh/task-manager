@@ -75,9 +75,9 @@ systemctl restart task-manager
 systemctl list-timers task-manager-backup.timer
 ```
 
-Service chạy Node.js với `--jitless` để tương thích các máy EL9 áp dụng chính sách
-không cho tiến trình systemd tạo vùng nhớ vừa ghi vừa thực thi. Cấu hình này tránh
-phải nới rộng SELinux và phù hợp quy mô triển khai nội bộ nhỏ.
+Node.js 22 được cài từ AlmaLinux AppStream để nhận đúng nhãn SELinux cho EL9 và
+vẫn sử dụng V8 JIT. Không dùng `--jitless`, vì chế độ đó làm chậm rõ rệt các thao
+tác đăng nhập, mã hóa mật khẩu và xử lý request.
 
 ## Quên mật khẩu Admin
 

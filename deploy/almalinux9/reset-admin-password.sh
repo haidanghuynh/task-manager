@@ -5,7 +5,8 @@ umask 077
 APP_DIR="${TASK_MANAGER_APP_DIR:-/opt/task-manager}"
 ENV_FILE="${TASK_MANAGER_ENV_FILE:-/etc/task-manager/task-manager.env}"
 APP_USER="${TASK_MANAGER_APP_USER:-taskmanager}"
-APP_PATH="/usr/local/bin:/usr/bin:/bin"
+APP_PATH="/usr/bin:/usr/local/bin:/bin"
+NPM_BIN="/usr/bin/npm"
 
 fail() { printf 'LỖI: %s\n' "$*" >&2; exit 1; }
 
@@ -16,7 +17,7 @@ id "$APP_USER" >/dev/null 2>&1 || fail "Không tìm thấy user dịch vụ: $AP
 
 printf '%s\n' "Danh sách tài khoản Admin:"
 runuser -u "$APP_USER" -- env PATH="$APP_PATH" RESET_ADMIN_LIST=1 \
-  bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run reset-admin-password"
+  bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$NPM_BIN' run reset-admin-password"
 printf '\n'
 
 read -r -p "Username Admin cần đặt lại mật khẩu: " ADMIN_USERNAME
@@ -34,7 +35,7 @@ while true; do
 done
 
 printf '%s' "$ADMIN_PASSWORD" | runuser -u "$APP_USER" -- env PATH="$APP_PATH" RESET_ADMIN_USERNAME="$ADMIN_USERNAME" \
-  bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run reset-admin-password"
+  bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$NPM_BIN' run reset-admin-password"
 
 unset ADMIN_PASSWORD ADMIN_PASSWORD_CONFIRM
 printf '%s\n' "Hoàn tất. Không cần khởi động lại ứng dụng."

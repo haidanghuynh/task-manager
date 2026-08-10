@@ -11,12 +11,16 @@ BACKUP_DIR="/var/backups/task-manager"
 ENV_DIR="/etc/task-manager"
 ENV_FILE="${ENV_DIR}/task-manager.env"
 SERVICE_FILE="/etc/systemd/system/task-manager.service"
+JITLESS_OVERRIDE_FILE="/etc/systemd/system/task-manager.service.d/jitless.conf"
 BACKUP_SERVICE_FILE="/etc/systemd/system/task-manager-backup.service"
 BACKUP_TIMER_FILE="/etc/systemd/system/task-manager-backup.timer"
 NGINX_FILE="/etc/nginx/conf.d/task-manager.conf"
-NODE_VERSION="22.22.3"
+NODE_STREAM="22"
 APP_PORT="3000"
-APP_PATH="/usr/local/bin:/usr/bin:/bin"
+APP_PATH="/usr/bin:/usr/local/bin:/bin"
+NODE_BIN="/usr/bin/node"
+NPM_BIN="/usr/bin/npm"
+NPX_BIN="/usr/bin/npx"
 ASSUME_YES=0
 IP_ADDRESS=""
 DOMAIN_NAME=""
@@ -179,34 +183,22 @@ done
 say "[1/9] Cài các gói hệ thống..."
 dnf install -y nginx curl tar xz rsync sqlite openssl policycoreutils
 
-say "[2/9] Cài Node.js ${NODE_VERSION}..."
-case "$(uname -m)" in
-  x86_64) NODE_ARCH="x64" ;;
-  aarch64) NODE_ARCH="arm64" ;;
-  *) fail "Kiến trúc CPU chưa được hỗ trợ: $(uname -m)" ;;
-esac
-NODE_DIST="node-v${NODE_VERSION}-linux-${NODE_ARCH}"
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf -- "$TMP_DIR"' EXIT
-curl --fail --location --silent --show-error "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_DIST}.tar.xz" -o "${TMP_DIR}/${NODE_DIST}.tar.xz"
-curl --fail --location --silent --show-error "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" -o "${TMP_DIR}/SHASUMS256.txt"
-(cd "$TMP_DIR" && grep " ${NODE_DIST}.tar.xz\$" SHASUMS256.txt | sha256sum --check --status) || fail "Checksum Node.js không hợp lệ."
-mkdir -p /usr/local/lib/nodejs
-rm -rf -- "/usr/local/lib/nodejs/${NODE_DIST}"
-tar -xJf "${TMP_DIR}/${NODE_DIST}.tar.xz" -C /usr/local/lib/nodejs
-# The installer runs with umask 027. Keep Node root-owned, but make its parent
-# and distribution tree traversable/readable by the unprivileged app user.
-chmod 0755 /usr/local/lib/nodejs
-chmod -R a+rX "/usr/local/lib/nodejs/${NODE_DIST}"
-ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/node" /usr/local/bin/node
-ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/npm" /usr/local/bin/npm
-ln -sfn "/usr/local/lib/nodejs/${NODE_DIST}/bin/npx" /usr/local/bin/npx
+say "[2/9] Cài Node.js ${NODE_STREAM} từ AlmaLinux AppStream..."
+# Use the distribution package so Node receives EL9-compatible SELinux labels.
+# The generic upstream tarball can be denied executable JIT memory when it is
+# launched by systemd, which otherwise forces the much slower --jitless mode.
+dnf module reset -y nodejs
+dnf module enable -y "nodejs:${NODE_STREAM}"
+dnf install -y nodejs npm
+[[ -x "$NODE_BIN" && -x "$NPM_BIN" && -x "$NPX_BIN" ]] || fail "Không tìm thấy Node.js/npm từ AppStream."
+NODE_MAJOR="$($NODE_BIN -p 'process.versions.node.split(".")[0]')"
+(( NODE_MAJOR >= 22 )) || fail "Cần Node.js 22 trở lên, phiên bản hiện tại: $($NODE_BIN --version)"
 
 say "[3/9] Tạo user và thư mục dịch vụ..."
 getent group "$APP_GROUP" >/dev/null || groupadd --system "$APP_GROUP"
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --gid "$APP_GROUP" --home-dir "$APP_DIR" --shell /sbin/nologin "$APP_USER"
-runuser -u "$APP_USER" -- env PATH="$APP_PATH" /usr/local/bin/node --version >/dev/null || fail "User $APP_USER không chạy được Node.js."
-runuser -u "$APP_USER" -- env PATH="$APP_PATH" /usr/local/bin/npm --version >/dev/null || fail "User $APP_USER không chạy được npm."
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" "$NODE_BIN" --version >/dev/null || fail "User $APP_USER không chạy được Node.js."
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" "$NPM_BIN" --version >/dev/null || fail "User $APP_USER không chạy được npm."
 mkdir -p "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR"
 # The environment file is root-owned and group-readable. Its parent directory
 # must also be traversable by the service group, including on installer reruns.
@@ -229,7 +221,7 @@ rsync -a --delete \
   --exclude='prisma/*.db' --exclude='prisma/*.db-journal' \
   "${SOURCE_DIR}/" "${APP_DIR}/"
 chown -R "$APP_USER:$APP_GROUP" "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR"
-runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; cd '$APP_DIR' && /usr/local/bin/npm ci"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; cd '$APP_DIR' && '$NPM_BIN' ci"
 
 say "[5/9] Cấu hình môi trường và database..."
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -259,10 +251,10 @@ fi
 chown root:"$APP_GROUP" "$ENV_FILE"
 chmod 0640 "$ENV_FILE"
 runuser -u "$APP_USER" -- test -r "$ENV_FILE" || fail "User $APP_USER không đọc được cấu hình: $ENV_FILE"
-runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npx prisma generate; /usr/local/bin/npx prisma migrate deploy"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$NPX_BIN' prisma generate; '$NPX_BIN' prisma migrate deploy"
 
 set +e
-runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run bootstrap-admin -- --check"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$NPM_BIN' run bootstrap-admin -- --check"
 ADMIN_CHECK_STATUS=$?
 set -e
 if (( ADMIN_CHECK_STATUS == 2 )); then
@@ -290,14 +282,14 @@ if (( ADMIN_CHECK_STATUS == 2 )); then
     BOOTSTRAP_ADMIN_USERNAME="$ADMIN_USERNAME" \
     BOOTSTRAP_ADMIN_NAME="$ADMIN_NAME" \
     BOOTSTRAP_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-    bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run bootstrap-admin"
+    bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$NPM_BIN' run bootstrap-admin"
   unset ADMIN_PASSWORD ADMIN_PASSWORD_CONFIRM TASK_MANAGER_ADMIN_PASSWORD || true
 elif (( ADMIN_CHECK_STATUS != 0 )); then
   fail "Không kiểm tra được tài khoản Admin (mã lỗi ${ADMIN_CHECK_STATUS})."
 fi
 
 say "[6/9] Build ứng dụng..."
-runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npm run build"
+runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$NPM_BIN' run build"
 
 say "[7/9] Cấu hình systemd và sao lưu tự động..."
 install -m 0700 -o root -g root "${APP_DIR}/deploy/almalinux9/reset-admin-password.sh" /usr/local/sbin/task-manager-reset-admin-password
@@ -316,10 +308,7 @@ Group=${APP_GROUP}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
 Environment=PATH=${APP_PATH}
-# Some hardened EL9 environments deny writable executable memory to systemd
-# services. JIT-less mode keeps V8 compatible without weakening SELinux.
-Environment=NODE_OPTIONS=--jitless
-ExecStart=/usr/local/bin/node ${APP_DIR}/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${APP_PORT}
+ExecStart=${NODE_BIN} ${APP_DIR}/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${APP_PORT}
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -328,6 +317,11 @@ KillSignal=SIGTERM
 [Install]
 WantedBy=multi-user.target
 EOF
+
+if [[ -f "$JITLESS_OVERRIDE_FILE" ]]; then
+  say "Gỡ override --jitless cũ để khôi phục hiệu năng V8 JIT..."
+  rm -f -- "$JITLESS_OVERRIDE_FILE"
+fi
 
 cat > /usr/local/sbin/task-manager-backup <<EOF
 #!/usr/bin/env bash
