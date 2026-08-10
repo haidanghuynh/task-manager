@@ -207,7 +207,10 @@ getent group "$APP_GROUP" >/dev/null || groupadd --system "$APP_GROUP"
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --gid "$APP_GROUP" --home-dir "$APP_DIR" --shell /sbin/nologin "$APP_USER"
 runuser -u "$APP_USER" -- env PATH="$APP_PATH" /usr/local/bin/node --version >/dev/null || fail "User $APP_USER không chạy được Node.js."
 runuser -u "$APP_USER" -- env PATH="$APP_PATH" /usr/local/bin/npm --version >/dev/null || fail "User $APP_USER không chạy được npm."
-mkdir -p "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR" "$ENV_DIR"
+mkdir -p "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR"
+# The environment file is root-owned and group-readable. Its parent directory
+# must also be traversable by the service group, including on installer reruns.
+install -d -m 0750 -o root -g "$APP_GROUP" "$ENV_DIR"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 if [[ -f "${APP_DIR}/package.json" ]]; then
@@ -255,6 +258,7 @@ else
 fi
 chown root:"$APP_GROUP" "$ENV_FILE"
 chmod 0640 "$ENV_FILE"
+runuser -u "$APP_USER" -- test -r "$ENV_FILE" || fail "User $APP_USER không đọc được cấu hình: $ENV_FILE"
 runuser -u "$APP_USER" -- env PATH="$APP_PATH" bash -lc "export PATH='$APP_PATH'; set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; /usr/local/bin/npx prisma generate; /usr/local/bin/npx prisma migrate deploy"
 
 set +e
