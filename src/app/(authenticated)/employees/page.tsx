@@ -127,13 +127,15 @@ export default function EmployeesPage() {
             </button>
             {isAdmin && <button
               onClick={async () => {
-                if (!confirm("Vô hiệu hóa tất cả nhân viên? Tài khoản liên kết sẽ bị khóa và lịch sử được giữ lại.")) return;
-                await fetch("/api/employees/bulk", { method: "DELETE" });
+                if (!confirm("Xóa vĩnh viễn tất cả nhân viên và tài khoản liên kết? Thao tác này không thể hoàn tác.")) return;
+                if (!confirm("Xác nhận lần cuối: XÓA TẤT CẢ NHÂN VIÊN?")) return;
+                const response = await fetch("/api/employees/bulk", { method: "DELETE" });
+                if (!response.ok) { alert("Không thể xóa tất cả nhân viên."); return; }
                 window.location.reload();
               }}
               className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
             >
-              Vô hiệu hóa tất cả
+              Xóa tất cả
             </button>}
           </div>
         )}
@@ -167,14 +169,14 @@ export default function EmployeesPage() {
               <div className="mt-3 flex gap-2">
                 <Link href={`/employees/${emp.id}`} className="text-xs text-blue-600 hover:underline">Xem</Link>
                 {isManager && <Link href={`/employees/${emp.id}`} className="text-xs text-orange-600 hover:underline">Sửa</Link>}
-                {isAdmin && emp.isActive && (
+                {isAdmin && (
                   <button onClick={async (e) => {
                     e.preventDefault();
-                    if (!confirm('Vô hiệu hóa nhân viên này? Tài khoản liên kết sẽ bị khóa và lịch sử được giữ lại.')) return;
+                    if (!confirm('Xóa vĩnh viễn nhân viên này và tài khoản đăng nhập liên kết? Thao tác này không thể hoàn tác.')) return;
                     const res = await fetch(`/api/employees/${emp.id}`, { method: 'DELETE' });
                     if (res.ok) window.location.reload();
-                    else alert('Không thể vô hiệu hóa nhân viên.');
-                  }} className="text-xs text-red-600 hover:underline">Vô hiệu hóa</button>
+                    else alert('Không thể xóa nhân viên.');
+                  }} className="text-xs text-red-600 hover:underline">Xóa</button>
                 )}
               </div>
               <div className="space-y-1 text-sm text-gray-600">

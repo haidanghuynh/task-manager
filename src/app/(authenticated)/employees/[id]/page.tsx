@@ -19,6 +19,7 @@ export default function EmployeeDetailPage() {
   const [teams, setTeams] = useState<any[]>([]);
 
   const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => { fetchEmp(); fetch("/api/teams").then(r => r.json()).then(j => j.success && setTeams(j.data)); }, [id]);
 
@@ -40,14 +41,12 @@ export default function EmployeeDetailPage() {
     fetchEmp();
   }
 
-  async function handleDeactivate() {
-    if (!confirm("Bạn có chắc muốn vô hiệu hóa nhân viên này?")) return;
-    await fetch(`/api/employees/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !emp.isActive }),
-    });
-    fetchEmp();
+  async function handleDelete() {
+    if (!confirm("Xóa vĩnh viễn nhân viên này và tài khoản đăng nhập liên kết? Thao tác này không thể hoàn tác.")) return;
+    const response = await fetch(`/api/employees/${id}`, { method: "DELETE" });
+    if (!response.ok) { alert("Không thể xóa nhân viên."); return; }
+    router.push("/employees");
+    router.refresh();
   }
 
   if (loading) return <div className="p-6 text-center text-gray-500">Đang tải...</div>;
@@ -65,9 +64,7 @@ export default function EmployeeDetailPage() {
           {isManager && !editing && (
             <>
               <button onClick={() => setEditing(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Chỉnh sửa</button>
-              <button onClick={handleDeactivate} className={`px-3 py-1.5 border rounded text-sm ${emp.isActive ? "text-red-600 border-red-200 hover:bg-red-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
-                {emp.isActive ? "Vô hiệu hóa" : "Kích hoạt lại"}
-              </button>
+              {isAdmin && <button onClick={handleDelete} className="px-3 py-1.5 border border-red-200 rounded text-sm text-red-600 hover:bg-red-50">Xóa</button>}
             </>
           )}
         </div>

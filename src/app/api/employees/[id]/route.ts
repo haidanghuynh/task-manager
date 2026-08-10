@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { deleteEmployeesPermanently } from "@/services/employee.service";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -51,17 +52,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const employee = await prisma.employee.findUnique({ where: { id }, select: { id: true } });
   if (!employee) return NextResponse.json({ success: false, error: { code: "NOT_FOUND" } }, { status: 404 });
 
-  await prisma.$transaction([
-    prisma.user.updateMany({ where: { employeeId: id }, data: { isActive: false } }),
-    prisma.employee.update({ where: { id }, data: { isActive: false, teamId: null } }),
-    prisma.teamMember.deleteMany({ where: { employeeId: id } }),
-    prisma.team.updateMany({ where: { leadId: id }, data: { leadId: null } }),
-    prisma.task.updateMany({ where: { currentAssigneeId: id }, data: { currentAssigneeId: null } }),
-    prisma.taskAssignmentHistory.updateMany({
-      where: { employeeId: id, assignedUntil: null },
-      data: { assignedUntil: new Date(), reason: "Employee deactivated" },
-    }),
-  ]);
+  const result = await prisma.$transaction((tx) => deleteEmployeesPermanently(tx, [id], user.id));
 
-  return NextResponse.json({ success: true, message: "Employee deactivated; history was preserved" });
+  return NextResponse.json({ success: true, data: result, message: "Employee permanently deleted" });
 }

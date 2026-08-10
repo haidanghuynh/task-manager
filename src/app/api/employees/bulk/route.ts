@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { deleteEmployeesPermanently } from "@/services/employee.service";
 
 export async function DELETE() {
   const user = await getCurrentUser();
@@ -9,27 +10,12 @@ export async function DELETE() {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
-    const employees = await tx.employee.findMany({ where: { isActive: true }, select: { id: true } });
+    const employees = await tx.employee.findMany({ select: { id: true } });
     const ids = employees.map((employee) => employee.id);
-    if (ids.length === 0) return 0;
-
-    await tx.user.updateMany({ where: { employeeId: { in: ids } }, data: { isActive: false } });
-    await tx.teamMember.deleteMany({ where: { employeeId: { in: ids } } });
-    await tx.team.updateMany({ where: { leadId: { in: ids } }, data: { leadId: null } });
-    await tx.task.updateMany({ where: { currentAssigneeId: { in: ids } }, data: { currentAssigneeId: null } });
-    await tx.taskAssignmentHistory.updateMany({
-      where: { employeeId: { in: ids }, assignedUntil: null },
-      data: { assignedUntil: now, reason: "Employee deactivated" },
-    });
-    const updated = await tx.employee.updateMany({
-      where: { id: { in: ids } },
-      data: { isActive: false, teamId: null },
-    });
-    return updated.count;
+    return deleteEmployeesPermanently(tx, ids, user.id);
   });
-  return NextResponse.json({ success: true, message: `Deactivated ${result} employees; history was preserved` });
+  return NextResponse.json({ success: true, data: result, message: `Permanently deleted ${result.employeesDeleted} employees` });
 }
 
 export async function POST(req: NextRequest) {
