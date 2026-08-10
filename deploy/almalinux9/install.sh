@@ -306,6 +306,8 @@ cat > "$SERVICE_FILE" <<EOF
 Description=Task Manager web application
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -314,7 +316,10 @@ Group=${APP_GROUP}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
 Environment=PATH=${APP_PATH}
-ExecStart=/usr/local/bin/npm run start -- --hostname 127.0.0.1 --port ${APP_PORT}
+# Some hardened EL9 environments deny writable executable memory to systemd
+# services. JIT-less mode keeps V8 compatible without weakening SELinux.
+Environment=NODE_OPTIONS=--jitless
+ExecStart=/usr/local/bin/node ${APP_DIR}/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${APP_PORT}
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30

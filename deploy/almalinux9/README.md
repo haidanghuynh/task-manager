@@ -75,6 +75,10 @@ systemctl restart task-manager
 systemctl list-timers task-manager-backup.timer
 ```
 
+Service chạy Node.js với `--jitless` để tương thích các máy EL9 áp dụng chính sách
+không cho tiến trình systemd tạo vùng nhớ vừa ghi vừa thực thi. Cấu hình này tránh
+phải nới rộng SELinux và phù hợp quy mô triển khai nội bộ nhỏ.
+
 ## Quên mật khẩu Admin
 
 Script cài đặt tạo sẵn lệnh chỉ dành cho `root`. Lệnh này chỉ đổi mật khẩu của
