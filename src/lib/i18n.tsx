@@ -43,7 +43,8 @@ function translateLegacyDom(lang: Lang, root: ParentNode = document.body) {
   while (current) {
     const textNode = current as Text;
     const parentTag = textNode.parentElement?.tagName;
-    if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
+    const ignored = textNode.parentElement?.closest("[data-i18n-ignore]");
+    if (parentTag !== "SCRIPT" && parentTag !== "STYLE" && !ignored) {
       const saved = originalText.get(textNode);
       if (lang === "ja") {
         const source = saved && textNode.data === translateLegacyValue(saved) ? saved : textNode.data;
@@ -51,7 +52,9 @@ function translateLegacyDom(lang: Lang, root: ParentNode = document.body) {
         const translated = translateLegacyValue(source);
         if (translated !== textNode.data) textNode.data = translated;
       } else {
-        const source = restoreLegacyValue(saved ?? textNode.data);
+        const source = saved && textNode.data === translateLegacyValue(saved)
+          ? saved
+          : restoreLegacyValue(textNode.data);
         originalText.set(textNode, source);
         if (textNode.data !== source) textNode.data = source;
       }
@@ -61,6 +64,7 @@ function translateLegacyDom(lang: Lang, root: ParentNode = document.body) {
 
   const elements = root instanceof Element ? [root, ...root.querySelectorAll("*")] : [...root.querySelectorAll("*")];
   for (const element of elements) {
+    if (element.closest("[data-i18n-ignore]")) continue;
     for (const attribute of ["placeholder", "title", "aria-label"]) {
       const currentValue = element.getAttribute(attribute);
       if (currentValue === null) continue;
@@ -75,7 +79,9 @@ function translateLegacyDom(lang: Lang, root: ParentNode = document.body) {
         savedAttributes.set(attribute, source);
         element.setAttribute(attribute, translateLegacyValue(source));
       } else {
-        const source = restoreLegacyValue(saved ?? currentValue);
+        const source = saved && currentValue === translateLegacyValue(saved)
+          ? saved
+          : restoreLegacyValue(currentValue);
         savedAttributes.set(attribute, source);
         if (currentValue !== source) element.setAttribute(attribute, source);
       }

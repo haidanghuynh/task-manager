@@ -4,6 +4,30 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n";
 
+type ScheduleTask = {
+  id: string;
+  taskCode: string;
+  taskName: string;
+  currentAssigneeId: string | null;
+  plannedStartDate: string;
+  plannedEndDate: string;
+  status: string;
+  product?: { name: string; color: string } | null;
+};
+
+type ScheduleEmployee = {
+  id: string;
+  employeeCode: string;
+  fullName: string;
+  teamId: string | null;
+};
+
+type ScheduleTeam = {
+  id: string;
+  name: string;
+  icon: string;
+};
+
 function calendarDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -22,15 +46,27 @@ export default function SchedulePage() {
   const { lang } = useLang();
 
   const now = new Date();
-  const [currentMonth, setCurrentMonth] = useState(now.getMonth());
-  const [currentYear, setCurrentYear] = useState(now.getFullYear());
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [tasks, setTasks] = useState<ScheduleTask[]>([]);
+  const [employees, setEmployees] = useState<ScheduleEmployee[]>([]);
+  const [teams, setTeams] = useState<ScheduleTeam[]>([]);
+  const [viewMode, setViewMode] = useState<"employees" | "teams">("employees");
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
+  const currentMonth = visibleMonth.getMonth();
+  const currentYear = visibleMonth.getFullYear();
   const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+
+  useEffect(() => {
+    fetch("/api/teams")
+      .then((response) => response.json())
+      .then((json) => {
+        if (json.success) setTeams(json.data);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,22 +104,19 @@ export default function SchedulePage() {
   const prevMonth = () => {
     setLoading(true);
     setLoadFailed(false);
-    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(currentYear - 1); }
-    else setCurrentMonth(currentMonth - 1);
+    setVisibleMonth((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1));
   };
 
   const nextMonth = () => {
     setLoading(true);
     setLoadFailed(false);
-    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(currentYear + 1); }
-    else setCurrentMonth(currentMonth + 1);
+    setVisibleMonth((value) => new Date(value.getFullYear(), value.getMonth() + 1, 1));
   };
 
   const goToToday = () => {
     setLoading(true);
     setLoadFailed(false);
-    setCurrentMonth(today.getMonth());
-    setCurrentYear(today.getFullYear());
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
     setReloadToken((value) => value + 1);
   };
 
@@ -96,18 +129,97 @@ export default function SchedulePage() {
   const today = new Date();
   const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
   const isToday = (d: Date) => d.toDateString() === today.toDateString();
+  const groupedTeams = teams
+    .map((team) => ({ ...team, employees: employees.filter((employee) => employee.teamId === team.id) }))
+    .filter((team) => team.employees.length > 0);
+  const employeesWithoutTeam = employees.filter((employee) => !employee.teamId);
+  const monthStartKey = `${monthStr}-01`;
+  const monthEndKey = `${monthStr}-${String(daysInMonth.length).padStart(2, "0")}`;
+
+  const renderEmployeeRow = (emp: ScheduleEmployee) => {
+    const empTasks = tasks.filter((task) => task.currentAssigneeId === emp.id);
+    return (
+      <div key={emp.id} className="grid border-b hover:bg-gray-50" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
+        <div className="px-3 py-2 border-r flex items-center">
+          <div>
+            <p className="text-sm font-medium text-gray-900 truncate">{emp.fullName}</p>
+            <p className="text-xs text-gray-400">{emp.employeeCode}</p>
+          </div>
+        </div>
+        {daysInMonth.map((day, dayIndex) => {
+          const dayKey = calendarDateKey(day);
+          const taskHere = empTasks.find((task) => {
+            const startKey = apiDateKey(task.plannedStartDate);
+            const endKey = apiDateKey(task.plannedEndDate);
+            return dayKey >= startKey && dayKey <= endKey;
+          });
+          const taskStartKey = taskHere ? apiDateKey(taskHere.plannedStartDate) : "";
+          const taskEndKey = taskHere ? apiDateKey(taskHere.plannedEndDate) : "";
+          const visibleStartKey = taskStartKey < monthStartKey ? monthStartKey : taskStartKey;
+          const visibleEndKey = taskEndKey > monthEndKey ? monthEndKey : taskEndKey;
+          const isStart = Boolean(taskHere && dayKey === visibleStartKey);
+          return (
+            <div key={dayIndex} className={`border-r relative ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`}>
+              {taskHere && isStart && (
+                <Link
+                  href={`/tasks/${taskHere.id}`}
+                  className="absolute inset-y-0 left-0 rounded-full hover:opacity-80 transition-opacity"
+                  style={{
+                    backgroundColor: taskHere.product?.color || "#6B7280",
+                    width: `${inclusiveDayCount(visibleStartKey, visibleEndKey) * 100}%`,
+                    minWidth: "100%",
+                    maxWidth: "none",
+                    height: "22px",
+                    top: "4px",
+                    zIndex: 10,
+                  }}
+                  title={`${taskHere.taskCode}: ${taskHere.taskName}\n${taskHere.product?.name}\n${taskHere.status}`}
+                >
+                  <span className="text-[10px] text-white font-medium px-1 truncate block leading-[22px]">
+                    {taskHere.product?.name}
+                  </span>
+                </Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-bold text-gray-900">Lịch phân công</h2>
-        <div className="flex items-center gap-3">
-          <button onClick={prevMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">← Trước</button>
-          <span className="text-sm font-semibold min-w-[120px] text-center">
-            Tháng {currentMonth + 1}/{currentYear}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-lg border p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode("employees")}
+              className={`rounded-md px-3 py-1 text-sm ${viewMode === "employees" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              {lang === "ja" ? "社員別" : "Theo nhân viên"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("teams")}
+              className={`rounded-md px-3 py-1 text-sm ${viewMode === "teams" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              {lang === "ja" ? "チーム別" : "Theo nhóm"}
+            </button>
+          </div>
+          <button data-i18n-ignore onClick={prevMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">
+            {lang === "ja" ? "← 前へ" : "← Trước"}
+          </button>
+          <span data-i18n-ignore className="text-sm font-semibold min-w-[120px] text-center">
+            {lang === "ja" ? `${currentYear}年${currentMonth + 1}月` : `Tháng ${currentMonth + 1}/${currentYear}`}
           </span>
-          <button onClick={nextMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Tiếp →</button>
-          <button onClick={goToToday} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Hôm nay</button>
+          <button data-i18n-ignore onClick={nextMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">
+            {lang === "ja" ? "次へ →" : "Tiếp →"}
+          </button>
+          <button data-i18n-ignore onClick={goToToday} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">
+            {lang === "ja" ? "今日" : "Hôm nay"}
+          </button>
         </div>
       </div>
 
@@ -128,7 +240,11 @@ export default function SchedulePage() {
         <div className="bg-white rounded-lg border overflow-auto">
           <div className="min-w-[800px]">
             <div className="grid sticky top-0 bg-white z-10 border-b" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
-              <div className="px-3 py-2 font-medium text-sm text-gray-700 border-r">Nhân viên</div>
+              <div className="px-3 py-2 font-medium text-sm text-gray-700 border-r">
+                {viewMode === "teams"
+                  ? (lang === "ja" ? "チーム／社員" : "Nhóm / Nhân viên")
+                  : (lang === "ja" ? "社員" : "Nhân viên")}
+              </div>
               {daysInMonth.map((d, i) => (
                 <div
                   key={i}
@@ -142,58 +258,30 @@ export default function SchedulePage() {
               ))}
             </div>
 
-            {employees.map((emp) => {
-              const empTasks = tasks.filter((t) => t.currentAssigneeId === emp.id);
-              return (
-                <div key={emp.id} className="grid border-b hover:bg-gray-50" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
-                  <div className="px-3 py-2 border-r flex items-center">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 truncate">{emp.fullName}</p>
-                      <p className="text-xs text-gray-400">{emp.employeeCode}</p>
+            {viewMode === "employees" ? employees.map(renderEmployeeRow) : (
+              <>
+                {groupedTeams.map((team) => (
+                  <div key={team.id}>
+                    <div className="flex items-center gap-2 border-b bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+                      <span>{team.icon}</span>
+                      <span>{team.name}</span>
+                      <span className="text-xs font-normal text-gray-500">
+                        ({team.employees.length} {lang === "ja" ? "名" : "thành viên"})
+                      </span>
                     </div>
+                    {team.employees.map(renderEmployeeRow)}
                   </div>
-                  {daysInMonth.map((d, di) => {
-                    const dayKey = calendarDateKey(d);
-                    const monthStartKey = `${monthStr}-01`;
-                    const monthEndKey = `${monthStr}-${String(daysInMonth.length).padStart(2, "0")}`;
-                    const taskHere = empTasks.find((t: any) => {
-                      const startKey = apiDateKey(t.plannedStartDate);
-                      const endKey = apiDateKey(t.plannedEndDate);
-                      return dayKey >= startKey && dayKey <= endKey;
-                    });
-                    const taskStartKey = taskHere ? apiDateKey(taskHere.plannedStartDate) : "";
-                    const taskEndKey = taskHere ? apiDateKey(taskHere.plannedEndDate) : "";
-                    const visibleStartKey = taskStartKey < monthStartKey ? monthStartKey : taskStartKey;
-                    const visibleEndKey = taskEndKey > monthEndKey ? monthEndKey : taskEndKey;
-                    const isStart = Boolean(taskHere && dayKey === visibleStartKey);
-                    return (
-                      <div key={di} className={`border-r relative ${isWeekend(d) ? "bg-gray-50" : ""} ${isToday(d) ? "bg-blue-50" : ""}`}>
-                        {isStart && (
-                          <Link
-                            href={`/tasks/${taskHere.id}`}
-                            className="absolute inset-y-0 left-0 rounded-full hover:opacity-80 transition-opacity"
-                            style={{
-                              backgroundColor: taskHere.product?.color || "#6B7280",
-                              width: `${inclusiveDayCount(visibleStartKey, visibleEndKey) * 100}%`,
-                              minWidth: "100%",
-                              maxWidth: "none",
-                              height: "22px",
-                              top: "4px",
-                              zIndex: 10,
-                            }}
-                            title={`${taskHere.taskCode}: ${taskHere.taskName}\n${taskHere.product?.name}\n${taskHere.status}`}
-                          >
-                            <span className="text-[10px] text-white font-medium px-1 truncate block leading-[22px]">
-                              {taskHere.product?.name}
-                            </span>
-                          </Link>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                ))}
+                {employeesWithoutTeam.length > 0 && (
+                  <div>
+                    <div className="border-b bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+                      {lang === "ja" ? "チーム未所属" : "Chưa có nhóm"}
+                    </div>
+                    {employeesWithoutTeam.map(renderEmployeeRow)}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
