@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS } from "@/types";
 import { formatDate } from "@/lib/date";
 import type { TaskStatus, TaskPriority } from "@/types";
@@ -38,8 +39,17 @@ function csvDate(value: unknown): string {
 }
 
 export default function TasksPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-gray-500">Đang tải...</div>}>
+      <TasksPageContent />
+    </Suspense>
+  );
+}
+
+function TasksPageContent() {
   const { data: session } = useSession();
   const { lang } = useLang();
+  const searchParams = useSearchParams();
   const user = session?.user as any;
 
   const [tasks, setTasks] = useState<any[]>([]);
@@ -47,12 +57,19 @@ export default function TasksPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [teams, setTeams] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>("team");
-  const [groupedType, setGroupedType] = useState<string | false>(false);
-  const [filters, setFilters] = useState({
-    search: "", status: "", product: "", priority: "",
-    employee: "", teamId: "", startDate: "", endDate: "", overdue: false
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const requestedView = searchParams.get("view");
+    return requestedView === "list" || requestedView === "assignee" || requestedView === "team" ? requestedView : "team";
   });
+  const [groupedType, setGroupedType] = useState<string | false>(false);
+  const [filters, setFilters] = useState(() => ({
+    search: "", status: "", product: "", priority: "",
+    employee: searchParams.get("employee") || "",
+    teamId: searchParams.get("teamId") || "",
+    startDate: searchParams.get("startDate") || "",
+    endDate: searchParams.get("endDate") || "",
+    overdue: searchParams.get("overdue") === "true",
+  }));
 
   const canEdit = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isAdmin = user?.role === "ADMIN";

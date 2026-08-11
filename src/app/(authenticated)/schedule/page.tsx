@@ -28,6 +28,12 @@ type ScheduleTeam = {
   icon: string;
 };
 
+type ScheduleProduct = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 function calendarDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -50,6 +56,7 @@ export default function SchedulePage() {
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [employees, setEmployees] = useState<ScheduleEmployee[]>([]);
   const [teams, setTeams] = useState<ScheduleTeam[]>([]);
+  const [products, setProducts] = useState<ScheduleProduct[]>([]);
   const [viewMode, setViewMode] = useState<"employees" | "teams">("employees");
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -60,10 +67,13 @@ export default function SchedulePage() {
   const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
 
   useEffect(() => {
-    fetch("/api/teams")
-      .then((response) => response.json())
-      .then((json) => {
-        if (json.success) setTeams(json.data);
+    Promise.all([
+      fetch("/api/teams").then((response) => response.json()),
+      fetch("/api/products").then((response) => response.json()),
+    ])
+      .then(([teamsJson, productsJson]) => {
+        if (teamsJson.success) setTeams(teamsJson.data);
+        if (productsJson.success) setProducts(productsJson.data);
       })
       .catch(() => {});
   }, []);
@@ -286,11 +296,14 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {!loading && (
-        <div className="flex gap-4 text-xs text-gray-500">
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#22C55E" }} /> Zone</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#3B82F6" }} /> Gate</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#F97316" }} /> Hunter</div>
+      {!loading && products.length > 0 && (
+        <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+          {products.map((product) => (
+            <div key={product.id} className="flex items-center gap-1">
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: product.color || "#6B7280" }} />
+              {product.name}
+            </div>
+          ))}
         </div>
       )}
     </div>

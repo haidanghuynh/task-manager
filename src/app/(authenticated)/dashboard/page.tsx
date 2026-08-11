@@ -2,8 +2,79 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { RankingChart, type RankingEntry } from "@/components/dashboard/ranking-chart";
+import { DashboardPeriodFilter, DashboardPeriodSummary, type DashboardPeriodMode } from "@/components/dashboard/period-filter";
 
-export default async function DashboardPage() {
+type DashboardSearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] || "" : value || "";
+}
+
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseDateKey(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) || dateKey(date) !== value ? null : date;
+}
+
+function formatViDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function resolveDashboardPeriod(params: DashboardSearchParams, now: Date) {
+  const requestedMode = firstParam(params.period);
+  const mode: DashboardPeriodMode = requestedMode === "range" || requestedMode === "year" ? requestedMode : "month";
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const defaultMonth = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+
+  const requestedMonth = firstParam(params.month);
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : defaultMonth;
+  const [monthYear, monthNumber] = month.split("-").map(Number);
+
+  const requestedYear = Number.parseInt(firstParam(params.year), 10);
+  const year = requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : currentYear;
+
+  const defaultFrom = `${month}-01`;
+  const defaultTo = dateKey(new Date(Date.UTC(monthYear, monthNumber, 0)));
+  const requestedFrom = firstParam(params.from);
+  const requestedTo = firstParam(params.to);
+  const parsedFrom = parseDateKey(requestedFrom);
+  const parsedTo = parseDateKey(requestedTo);
+  const validRange = parsedFrom && parsedTo && parsedFrom <= parsedTo;
+  const from = validRange ? requestedFrom : defaultFrom;
+  const to = validRange ? requestedTo : defaultTo;
+
+  let start: Date;
+  let end: Date;
+  let labelVi: string;
+  let labelJa: string;
+
+  if (mode === "year") {
+    start = new Date(Date.UTC(year, 0, 1));
+    end = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+    labelVi = `năm ${year}`;
+    labelJa = `${year}年`;
+  } else if (mode === "range") {
+    start = new Date(`${from}T00:00:00.000Z`);
+    end = new Date(`${to}T23:59:59.999Z`);
+    labelVi = `từ ${formatViDate(from)} đến ${formatViDate(to)}`;
+    labelJa = `${from}～${to}`;
+  } else {
+    start = new Date(Date.UTC(monthYear, monthNumber - 1, 1));
+    end = new Date(Date.UTC(monthYear, monthNumber, 0, 23, 59, 59, 999));
+    labelVi = `tháng ${monthNumber}/${monthYear}`;
+    labelJa = `${monthYear}年${monthNumber}月`;
+  }
+
+  return { mode, month, year: String(year), from, to, start, end, labelVi, labelJa };
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -11,14 +82,13 @@ export default async function DashboardPage() {
   const userEmployeeId = user.employeeId;
 
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const period = resolveDashboardPeriod(await searchParams, now);
 
   // Build filter for non-manager/non-admin users
   const taskFilterBase: any = {
     deletedAt: null,
-    plannedStartDate: { lte: endOfMonth },
-    plannedEndDate: { gte: startOfMonth },
+    plannedStartDate: { lte: period.end },
+    plannedEndDate: { gte: period.start },
   };
 
   if (userRole === "EMPLOYEE") {
@@ -36,7 +106,7 @@ export default async function DashboardPage() {
         where: {
           ...taskFilterBase,
           status: { notIn: ["COMPLETED", "CANCELLED"] },
-          plannedEndDate: { lt: now },
+          plannedEndDate: { gte: period.start, lt: now },
         },
       }),
     ]);
@@ -88,9 +158,8 @@ export default async function DashboardPage() {
         tasks: {
           where: {
             deletedAt: null,
-            status: { not: "CANCELLED" },
-            plannedStartDate: { lte: endOfMonth },
-            plannedEndDate: { gte: startOfMonth },
+            plannedStartDate: { lte: period.end },
+            plannedEndDate: { gte: period.start },
           },
           select: { status: true, plannedEndDate: true },
         },
@@ -103,8 +172,11 @@ export default async function DashboardPage() {
       return {
         total,
         completed,
+        planned: tasks.filter((task) => task.status === "PLANNED").length,
         inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
-        overdue: tasks.filter((task) => task.status !== "COMPLETED" && task.plannedEndDate < now).length,
+        waiting: tasks.filter((task) => task.status === "WAITING").length,
+        cancelled: tasks.filter((task) => task.status === "CANCELLED").length,
+        overdue: tasks.filter((task) => !["COMPLETED", "CANCELLED"].includes(task.status) && task.plannedEndDate < now).length,
         completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
       };
     };
@@ -144,7 +216,7 @@ export default async function DashboardPage() {
   };
 
   const stats = [
-    { label: "Tổng task trong tháng", value: totalTasks, color: "bg-blue-500" },
+    { label: "Tổng task trong kỳ", value: totalTasks, color: "bg-blue-500" },
     { label: "Chưa bắt đầu", value: plannedTasks, color: "bg-gray-500" },
     { label: "Đang thực hiện", value: inProgressTasks, color: "bg-yellow-500" },
     { label: "Hoàn thành", value: completedTasks, color: "bg-green-500" },
@@ -163,10 +235,10 @@ export default async function DashboardPage() {
     <div className="p-6 space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Tổng quan</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Tháng {now.getMonth() + 1}/{now.getFullYear()}
-        </p>
+        <DashboardPeriodSummary label={{ vi: period.labelVi, ja: period.labelJa }} />
       </div>
+
+      <DashboardPeriodFilter mode={period.mode} month={period.month} year={period.year} from={period.from} to={period.to} />
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -185,7 +257,12 @@ export default async function DashboardPage() {
       </div>
 
       {(userRole === "ADMIN" || userRole === "MANAGER") && (
-        <RankingChart members={memberRanking} teams={teamRanking} />
+        <RankingChart
+          members={memberRanking}
+          teams={teamRanking}
+          periodLabel={{ vi: period.labelVi, ja: period.labelJa }}
+          range={{ from: dateKey(period.start), to: dateKey(period.end) }}
+        />
       )}
 
       {/* Tasks by Product */}

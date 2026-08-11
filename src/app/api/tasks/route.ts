@@ -54,10 +54,15 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const plannedStartDateFilter: Prisma.DateTimeFilter = {};
-  if (startDate) plannedStartDateFilter.gte = new Date(startDate);
-  if (endDate) plannedStartDateFilter.lte = new Date(endDate);
-  if (startDate || endDate) where.plannedStartDate = plannedStartDateFilter;
+  // A task belongs to the selected period when its planned range overlaps it.
+  if (startDate) {
+    const parsedStart = new Date(`${startDate}T00:00:00.000Z`);
+    if (!Number.isNaN(parsedStart.getTime())) where.plannedEndDate = { gte: parsedStart };
+  }
+  if (endDate) {
+    const parsedEnd = new Date(`${endDate}T23:59:59.999Z`);
+    if (!Number.isNaN(parsedEnd.getTime())) where.plannedStartDate = { lte: parsedEnd };
+  }
   if (teamId) {
     const teamMembers = await prisma.employee.findMany({ where: { teamId }, select: { id: true } });
     where.currentAssigneeId = { in: teamMembers.map((e: any) => e.id) };
@@ -66,7 +71,7 @@ export async function GET(req: NextRequest) {
 
   if (overdueOnly) {
     where.status = { notIn: ["COMPLETED", "CANCELLED"] };
-    where.plannedEndDate = { lt: new Date() };
+    where.plannedEndDate = { ...(where.plannedEndDate as Prisma.DateTimeFilter | undefined), lt: new Date() };
   }
 
   if (groupBy === "assignee" || groupBy === "team") {

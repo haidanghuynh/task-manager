@@ -117,6 +117,8 @@ export const jaUi: Record<string, string> = {
   "Hoàn thành đúng hạn": "期限内完了",
   "Hoàn thành trễ": "期限超過完了",
   "Tổng task trong tháng": "今月のタスク合計",
+  "Tổng task trong kỳ": "期間内のタスク合計",
+  "Kỳ thống kê": "集計期間",
   "Nhân viên chưa có task": "タスク未割当の社員",
   "Task theo sản phẩm": "製品別タスク",
   "Task theo trạng thái": "ステータス別タスク",
