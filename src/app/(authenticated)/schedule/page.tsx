@@ -34,6 +34,12 @@ type ScheduleProduct = {
   color: string;
 };
 
+type PositionedTask = ScheduleTask & {
+  visibleStartKey: string;
+  visibleEndKey: string;
+  lane: number;
+};
+
 function calendarDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -46,6 +52,27 @@ function inclusiveDayCount(startKey: string, endKey: string) {
   const start = Date.parse(`${startKey}T00:00:00Z`);
   const end = Date.parse(`${endKey}T00:00:00Z`);
   return Math.floor((end - start) / 86_400_000) + 1;
+}
+
+function positionTasks(tasks: ScheduleTask[], monthStartKey: string, monthEndKey: string): PositionedTask[] {
+  const laneEndKeys: string[] = [];
+  return tasks
+    .map((task) => {
+      const startKey = apiDateKey(task.plannedStartDate);
+      const endKey = apiDateKey(task.plannedEndDate);
+      return {
+        ...task,
+        visibleStartKey: startKey < monthStartKey ? monthStartKey : startKey,
+        visibleEndKey: endKey > monthEndKey ? monthEndKey : endKey,
+      };
+    })
+    .sort((a, b) => a.visibleStartKey.localeCompare(b.visibleStartKey) || a.visibleEndKey.localeCompare(b.visibleEndKey))
+    .map((task) => {
+      let lane = laneEndKeys.findIndex((endKey) => endKey < task.visibleStartKey);
+      if (lane === -1) lane = laneEndKeys.length;
+      laneEndKeys[lane] = task.visibleEndKey;
+      return { ...task, lane };
+    });
 }
 
 export default function SchedulePage() {
@@ -139,6 +166,7 @@ export default function SchedulePage() {
   const today = new Date();
   const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
   const isToday = (d: Date) => d.toDateString() === today.toDateString();
+  const weekdayLabels = lang === "ja" ? ["日", "月", "火", "水", "木", "金", "土"] : ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
   const groupedTeams = teams
     .map((team) => ({ ...team, employees: employees.filter((employee) => employee.teamId === team.id) }))
     .filter((team) => team.employees.length > 0);
@@ -148,9 +176,12 @@ export default function SchedulePage() {
 
   const renderEmployeeRow = (emp: ScheduleEmployee) => {
     const empTasks = tasks.filter((task) => task.currentAssigneeId === emp.id);
+    const positionedTasks = positionTasks(empTasks, monthStartKey, monthEndKey);
+    const laneCount = Math.max(1, ...positionedTasks.map((task) => task.lane + 1));
+    const rowHeight = laneCount * 26 + 8;
     return (
       <div key={emp.id} className="grid border-b hover:bg-gray-50" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
-        <div className="px-3 py-2 border-r flex items-center">
+        <div className="px-3 py-2 border-r flex items-center" style={{ minHeight: `${rowHeight}px` }}>
           <div>
             <p className="text-sm font-medium text-gray-900 truncate">{emp.fullName}</p>
             <p className="text-xs text-gray-400">{emp.employeeCode}</p>
@@ -158,38 +189,30 @@ export default function SchedulePage() {
         </div>
         {daysInMonth.map((day, dayIndex) => {
           const dayKey = calendarDateKey(day);
-          const taskHere = empTasks.find((task) => {
-            const startKey = apiDateKey(task.plannedStartDate);
-            const endKey = apiDateKey(task.plannedEndDate);
-            return dayKey >= startKey && dayKey <= endKey;
-          });
-          const taskStartKey = taskHere ? apiDateKey(taskHere.plannedStartDate) : "";
-          const taskEndKey = taskHere ? apiDateKey(taskHere.plannedEndDate) : "";
-          const visibleStartKey = taskStartKey < monthStartKey ? monthStartKey : taskStartKey;
-          const visibleEndKey = taskEndKey > monthEndKey ? monthEndKey : taskEndKey;
-          const isStart = Boolean(taskHere && dayKey === visibleStartKey);
+          const startingTasks = positionedTasks.filter((task) => task.visibleStartKey === dayKey);
           return (
-            <div key={dayIndex} className={`border-r relative ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`}>
-              {taskHere && isStart && (
+            <div key={dayIndex} style={{ minHeight: `${rowHeight}px` }} className={`border-r relative ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`}>
+              {startingTasks.map((task) => (
                 <Link
-                  href={`/tasks/${taskHere.id}`}
-                  className="absolute inset-y-0 left-0 rounded-full hover:opacity-80 transition-opacity"
+                  key={task.id}
+                  href={`/tasks/${task.id}`}
+                  className="absolute left-0 rounded-full hover:opacity-80 transition-opacity"
                   style={{
-                    backgroundColor: taskHere.product?.color || "#6B7280",
-                    width: `${inclusiveDayCount(visibleStartKey, visibleEndKey) * 100}%`,
+                    backgroundColor: task.product?.color || "#6B7280",
+                    width: `${inclusiveDayCount(task.visibleStartKey, task.visibleEndKey) * 100}%`,
                     minWidth: "100%",
                     maxWidth: "none",
                     height: "22px",
-                    top: "4px",
-                    zIndex: 10,
+                    top: `${4 + task.lane * 26}px`,
+                    zIndex: 10 + task.lane,
                   }}
-                  title={`${taskHere.taskCode}: ${taskHere.taskName}\n${taskHere.product?.name}\n${taskHere.status}`}
+                  title={`${task.taskCode}: ${task.taskName}\n${task.product?.name}\n${task.status}`}
                 >
                   <span className="text-[10px] text-white font-medium px-1 truncate block leading-[22px]">
-                    {taskHere.product?.name}
+                    {task.product?.name}
                   </span>
                 </Link>
-              )}
+              ))}
             </div>
           );
         })}
@@ -262,8 +285,9 @@ export default function SchedulePage() {
                     isToday(d) ? "bg-blue-100 text-blue-700" : isWeekend(d) ? "bg-gray-100 text-gray-500" : "text-gray-600"
                   }`}
                 >
-                  {d.getDate()}
-                  {isToday(d) && <div className="text-[9px] text-blue-500">H.nay</div>}
+                  <div>{d.getDate()}</div>
+                  <div data-i18n-ignore className="text-[9px] font-normal">{weekdayLabels[d.getDay()]}</div>
+                  {isToday(d) && <div data-i18n-ignore className="text-[9px] text-blue-500">{lang === "ja" ? "今日" : "H.nay"}</div>}
                 </div>
               ))}
             </div>

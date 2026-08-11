@@ -82,7 +82,7 @@ textarea {
 :root[data-theme="dark"] .text-orange-700 { color: #fdba74; }
 :root[data-theme="dark"] .bg-amber-50\/40 { background-color: rgb(69 26 3 / 0.35); }
 :root[data-theme="dark"] .task-team-header {
-  background-image: linear-gradient(to right, #172554, #312e81);
+  background-image: linear-gradient(90deg, #172554, #000000);
 }
 
 :root[data-theme="dark"] .theme-logo-surface { background-color: #ffffff; }
