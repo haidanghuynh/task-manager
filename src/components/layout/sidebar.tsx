@@ -90,7 +90,7 @@ export function Sidebar() {
           <button
             onClick={() => setLang("ja")}
             className={`px-2 py-1 rounded text-xs ${lang === "ja" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}
-          >🇯🇵 JA</button>
+          >🇯🇵 日本語</button>
         </div>
         <div className="px-3 py-2">
           <p className="text-sm font-medium text-white truncate">
