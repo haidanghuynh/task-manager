@@ -84,7 +84,8 @@ export default function SchedulePage() {
   const [employees, setEmployees] = useState<ScheduleEmployee[]>([]);
   const [teams, setTeams] = useState<ScheduleTeam[]>([]);
   const [products, setProducts] = useState<ScheduleProduct[]>([]);
-  const [viewMode, setViewMode] = useState<"employees" | "teams">("employees");
+  const [viewMode, setViewMode] = useState<"employees" | "teams">("teams");
+  const [collapsedTeams, setCollapsedTeams] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -171,8 +172,30 @@ export default function SchedulePage() {
     .map((team) => ({ ...team, employees: employees.filter((employee) => employee.teamId === team.id) }))
     .filter((team) => team.employees.length > 0);
   const employeesWithoutTeam = employees.filter((employee) => !employee.teamId);
+  const employeesWithoutTeamIds = new Set(employeesWithoutTeam.map((employee) => employee.id));
+  const unassignedTaskCount = tasks.filter(
+    (task) => task.currentAssigneeId && employeesWithoutTeamIds.has(task.currentAssigneeId),
+  ).length;
   const monthStartKey = `${monthStr}-01`;
   const monthEndKey = `${monthStr}-${String(daysInMonth.length).padStart(2, "0")}`;
+  const unassignedTeamKey = "__unassigned__";
+
+  const toggleTeam = (teamId: string) => {
+    setCollapsedTeams((current) => {
+      const next = new Set(current);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  };
+
+  const collapseAllTeams = () => {
+    const teamIds = groupedTeams.map((team) => team.id);
+    if (employeesWithoutTeam.length > 0) teamIds.push(unassignedTeamKey);
+    setCollapsedTeams(new Set(teamIds));
+  };
+
+  const expandAllTeams = () => setCollapsedTeams(new Set());
 
   const renderEmployeeRow = (emp: ScheduleEmployee) => {
     const empTasks = tasks.filter((task) => task.currentAssigneeId === emp.id);
@@ -241,6 +264,16 @@ export default function SchedulePage() {
               {lang === "ja" ? "チーム別" : "Theo nhóm"}
             </button>
           </div>
+          {viewMode === "teams" && (
+            <div data-i18n-ignore className="flex rounded-lg border p-0.5 text-xs">
+              <button type="button" onClick={expandAllTeams} className="rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50">
+                {lang === "ja" ? "すべて展開" : "Mở rộng tất cả"}
+              </button>
+              <button type="button" onClick={collapseAllTeams} className="rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50">
+                {lang === "ja" ? "すべて折りたたむ" : "Thu gọn tất cả"}
+              </button>
+            </div>
+          )}
           <button data-i18n-ignore onClick={prevMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">
             {lang === "ja" ? "← 前へ" : "← Trước"}
           </button>
@@ -294,24 +327,50 @@ export default function SchedulePage() {
 
             {viewMode === "employees" ? employees.map(renderEmployeeRow) : (
               <>
-                {groupedTeams.map((team) => (
-                  <div key={team.id}>
-                    <div className="flex items-center gap-2 border-b bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
-                      <span>{team.icon}</span>
-                      <span>{team.name}</span>
-                      <span className="text-xs font-normal text-gray-500">
-                        ({team.employees.length} {lang === "ja" ? "名" : "thành viên"})
-                      </span>
+                {groupedTeams.map((team) => {
+                  const employeeIds = new Set(team.employees.map((employee) => employee.id));
+                  const taskCount = tasks.filter((task) => task.currentAssigneeId && employeeIds.has(task.currentAssigneeId)).length;
+                  const collapsed = collapsedTeams.has(team.id);
+                  return (
+                    <div key={team.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleTeam(team.id)}
+                        aria-expanded={!collapsed}
+                        className="flex w-full items-center gap-2 border-b bg-gray-100 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <span aria-hidden="true" className="w-3 text-xs">{collapsed ? "▸" : "▾"}</span>
+                        <span>{team.icon}</span>
+                        <span>{team.name}</span>
+                        <span data-i18n-ignore className="text-xs font-normal text-gray-500">
+                          ({team.employees.length} {lang === "ja" ? "名" : "thành viên"})
+                        </span>
+                        <span data-i18n-ignore className="ml-auto text-xs font-normal text-gray-500">
+                          {lang === "ja" ? `${taskCount} タスク` : `${taskCount} task`}
+                        </span>
+                      </button>
+                      {!collapsed && team.employees.map(renderEmployeeRow)}
                     </div>
-                    {team.employees.map(renderEmployeeRow)}
-                  </div>
-                ))}
+                  );
+                })}
                 {employeesWithoutTeam.length > 0 && (
                   <div>
-                    <div className="border-b bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
-                      {lang === "ja" ? "チーム未所属" : "Chưa có nhóm"}
-                    </div>
-                    {employeesWithoutTeam.map(renderEmployeeRow)}
+                    <button
+                      type="button"
+                      onClick={() => toggleTeam(unassignedTeamKey)}
+                      aria-expanded={!collapsedTeams.has(unassignedTeamKey)}
+                      className="flex w-full items-center gap-2 border-b bg-gray-100 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      <span aria-hidden="true" className="w-3 text-xs">{collapsedTeams.has(unassignedTeamKey) ? "▸" : "▾"}</span>
+                      <span>{lang === "ja" ? "チーム未所属" : "Chưa có nhóm"}</span>
+                      <span data-i18n-ignore className="text-xs font-normal text-gray-500">
+                        ({employeesWithoutTeam.length} {lang === "ja" ? "名" : "thành viên"})
+                      </span>
+                      <span data-i18n-ignore className="ml-auto text-xs font-normal text-gray-500">
+                        {lang === "ja" ? `${unassignedTaskCount} タスク` : `${unassignedTaskCount} task`}
+                      </span>
+                    </button>
+                    {!collapsedTeams.has(unassignedTeamKey) && employeesWithoutTeam.map(renderEmployeeRow)}
                   </div>
                 )}
               </>
