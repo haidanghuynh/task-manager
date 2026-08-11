@@ -68,15 +68,22 @@ textarea {
 :root[data-theme="dark"] .bg-green-50,
 :root[data-theme="dark"] .bg-green-100 { background-color: #052e16; }
 :root[data-theme="dark"] .text-green-700 { color: #86efac; }
-:root[data-theme="dark"] .bg-yellow-50 { background-color: #422006; }
+:root[data-theme="dark"] .bg-yellow-50,
+:root[data-theme="dark"] .bg-yellow-100 { background-color: #422006; }
 :root[data-theme="dark"] .text-yellow-700,
 :root[data-theme="dark"] .text-yellow-800 { color: #fde68a; }
-:root[data-theme="dark"] .bg-red-50 { background-color: #450a0a; }
+:root[data-theme="dark"] .bg-purple-100 { background-color: #3b0764; }
+:root[data-theme="dark"] .text-purple-700 { color: #d8b4fe; }
+:root[data-theme="dark"] .bg-red-50,
+:root[data-theme="dark"] .bg-red-100 { background-color: #450a0a; }
 :root[data-theme="dark"] .text-red-700 { color: #fca5a5; }
 :root[data-theme="dark"] .border-red-200 { border-color: #7f1d1d; }
 :root[data-theme="dark"] .bg-orange-100 { background-color: #431407; }
 :root[data-theme="dark"] .text-orange-700 { color: #fdba74; }
 :root[data-theme="dark"] .bg-amber-50\/40 { background-color: rgb(69 26 3 / 0.35); }
+:root[data-theme="dark"] .task-team-header {
+  background-image: linear-gradient(to right, #172554, #312e81);
+}
 
 :root[data-theme="dark"] .theme-logo-surface { background-color: #ffffff; }
 :root[data-theme="dark"] .theme-toggle .bg-white { background-color: #f8fafc; color: #111827; }

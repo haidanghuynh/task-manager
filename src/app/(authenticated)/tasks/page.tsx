@@ -280,7 +280,7 @@ function TasksPageContent() {
         <div className="space-y-6">
           {tasks.map((team: any) => (
             <div key={team.team.id} className="bg-white rounded-lg border">
-              <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b rounded-t-lg">
+              <div className="task-team-header flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b rounded-t-lg">
                 <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">🏢</div>
                 <div className="flex-1">
                   <p className="font-bold text-gray-900 text-lg">{team.team.name}</p>
@@ -302,7 +302,9 @@ function TasksPageContent() {
                       <div className="flex gap-1.5 text-[11px]">
                         <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{assignee.count} tasks</span>
                         <span className="px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-700">{assignee.inProgress} đang làm</span>
-                        <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700">{assignee.completed} xong</span>
+                        <span data-i18n-ignore className="px-1.5 py-0.5 rounded bg-green-50 text-green-700">
+                          {lang === "ja" ? `完了 ${assignee.completed}件` : `${assignee.completed} xong`}
+                        </span>
                       </div>
                     </div>
                     <div className="ml-10 space-y-1">
@@ -341,7 +343,9 @@ function TasksPageContent() {
                   <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{assignee.count} tasks</span>
                   <span className="px-2 py-0.5 rounded bg-yellow-50 text-yellow-700">{assignee.inProgress} đang làm</span>
                   <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600">{assignee.planned} plan</span>
-                  <span className="px-2 py-0.5 rounded bg-green-50 text-green-700">{assignee.completed} xong</span>
+                  <span data-i18n-ignore className="px-2 py-0.5 rounded bg-green-50 text-green-700">
+                    {lang === "ja" ? `完了 ${assignee.completed}件` : `${assignee.completed} xong`}
+                  </span>
                 </div>
               </div>
               <div className="divide-y">
