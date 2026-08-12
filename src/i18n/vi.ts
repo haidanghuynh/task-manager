@@ -3,6 +3,7 @@ export const vi = {
     dashboard: "Tổng quan",
     schedule: "Lịch phân công",
     tasks: "Danh sách task",
+    waitingTasks: "Task chờ phân công",
     employees: "Nhân viên",
     teams: "Nhóm",
     reports: "Báo cáo",

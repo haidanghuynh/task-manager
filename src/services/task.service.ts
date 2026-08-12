@@ -58,7 +58,7 @@ export async function reassignTask(
     const now = new Date();
     await tx.taskAssignmentHistory.updateMany({
       where: { taskId, assignedUntil: null },
-      data: { assignedUntil: now, reason },
+      data: { assignedUntil: now, reason: reason || null },
     });
     await tx.taskAssignmentHistory.create({
       data: { taskId, employeeId: newEmployeeId, assignedById, assignedFrom: now },
@@ -85,6 +85,42 @@ export async function reassignTask(
   );
 
   return { overlaps };
+}
+
+export async function unassignTask(
+  taskId: string,
+  changedById: string,
+  reason: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    const task = await tx.task.findUnique({ where: { id: taskId } });
+    if (!task || task.deletedAt) throw new Error("Task not found");
+    if (!task.currentAssigneeId) throw new Error("Task is already unassigned");
+    if (task.status === "COMPLETED" || task.status === "CANCELLED") {
+      throw new Error("Completed or cancelled tasks cannot be returned to the waiting queue");
+    }
+
+    const now = new Date();
+    await tx.taskAssignmentHistory.updateMany({
+      where: { taskId, assignedUntil: null },
+      data: { assignedUntil: now, reason: reason || null },
+    });
+    await tx.task.update({
+      where: { id: taskId },
+      data: { currentAssigneeId: null },
+    });
+    await tx.taskChangeLog.create({
+      data: {
+        taskId,
+        changedById,
+        fieldName: "currentAssignee",
+        oldValue: task.currentAssigneeId,
+        newValue: null,
+      },
+    });
+
+    return { taskId };
+  });
 }
 
 export async function updateTaskStatus(

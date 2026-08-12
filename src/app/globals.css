@@ -81,6 +81,16 @@ textarea {
 :root[data-theme="dark"] .bg-orange-100 { background-color: #431407; }
 :root[data-theme="dark"] .text-orange-700 { color: #fdba74; }
 :root[data-theme="dark"] .bg-amber-50\/40 { background-color: rgb(69 26 3 / 0.35); }
+:root[data-theme="dark"] .task-unassign-panel {
+  border-color: #9a3412;
+  background-color: #431407;
+}
+:root[data-theme="dark"] .task-unassign-title { color: #fed7aa; }
+:root[data-theme="dark"] .task-unassign-button {
+  background-color: #ea580c;
+  color: #ffffff;
+}
+:root[data-theme="dark"] .task-unassign-button:hover { background-color: #f97316; }
 :root[data-theme="dark"] .task-team-header {
   background-image: linear-gradient(90deg, #172554, #000000);
 }

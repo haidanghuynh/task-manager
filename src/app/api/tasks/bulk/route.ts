@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     let reason = "";
     if (!taskName || taskName.length > 200) reason = "Invalid task name";
     else if (!product) reason = `Product code not found: ${productCode || "(empty)"}`;
-    else if (employeeMatches.length !== 1) reason = employeeMatches.length > 1 ? `Employee code is duplicated: ${assigneeCode}` : `Employee code not found: ${assigneeCode || "(empty)"}`;
+    else if (assigneeCode && employeeMatches.length !== 1) reason = employeeMatches.length > 1 ? `Employee code is duplicated: ${assigneeCode}` : `Employee code not found: ${assigneeCode}`;
     else if (!start || !end || end < start) reason = "Invalid planned date range";
     else if ((actualStartValue && !actualStart) || (actualEndValue && !actualEnd)) reason = "Invalid actual date";
     else if (!statuses.has(status)) reason = `Invalid status: ${status}`;
@@ -82,16 +82,18 @@ export async function POST(req: NextRequest) {
         const task = await tx.task.create({
           data: {
             taskCode, taskName, description: description || null, productId: product!.id,
-            currentAssigneeId: employeeMatches[0].id, createdById: user.id,
+            currentAssigneeId: employeeMatches[0]?.id || null, createdById: user.id,
             plannedStartDate: start!, plannedEndDate: end!,
             actualStartDate: actualStart ?? (status !== "PLANNED" ? start : null),
             actualEndDate: actualEnd ?? (status === "COMPLETED" ? end : null),
             status, progress, priority, note: note || null,
           },
         });
-        await tx.taskAssignmentHistory.create({
-          data: { taskId: task.id, employeeId: employeeMatches[0].id, assignedById: user.id, assignedFrom: start! },
-        });
+        if (employeeMatches[0]) {
+          await tx.taskAssignmentHistory.create({
+            data: { taskId: task.id, employeeId: employeeMatches[0].id, assignedById: user.id, assignedFrom: start! },
+          });
+        }
         await tx.taskStatusHistory.create({
           data: { taskId: task.id, oldStatus: "PLANNED", newStatus: status, changedById: user.id },
         });

@@ -68,6 +68,7 @@ function TasksPageContent() {
     teamId: searchParams.get("teamId") || "",
     startDate: searchParams.get("startDate") || "",
     endDate: searchParams.get("endDate") || "",
+    assignment: searchParams.get("assignment") || "",
     overdue: searchParams.get("overdue") === "true",
   }));
 
@@ -120,6 +121,8 @@ function TasksPageContent() {
     if (filters.startDate) params.set("startDate", filters.startDate);
     if (filters.endDate) params.set("endDate", filters.endDate);
     if (filters.teamId) params.set("teamId", filters.teamId);
+    if (filters.assignment) params.set("assignment", filters.assignment);
+    if (filters.assignment) params.set("assignment", filters.assignment);
     if (filters.overdue) params.set("overdue", "true");
   }
 
@@ -197,7 +200,7 @@ function TasksPageContent() {
     await fetchTasks();
   }
 
-  const resetFilters = () => setFilters({ search: "", status: "", product: "", priority: "", employee: "", teamId: "", startDate: "", endDate: "", overdue: false });
+  const resetFilters = () => setFilters({ search: "", status: "", product: "", priority: "", employee: "", teamId: "", startDate: "", endDate: "", assignment: "", overdue: false });
 
   return (
     <div className="p-6 space-y-4">
@@ -260,6 +263,11 @@ function TasksPageContent() {
         <select className="border rounded px-2 py-1.5 text-sm" value={filters.teamId} onChange={(e) => setFilters({ ...filters, teamId: e.target.value })}>
           <option value="">Tất cả nhóm</option>
           {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select className="border rounded px-2 py-1.5 text-sm" value={filters.assignment} onChange={(e) => setFilters({ ...filters, assignment: e.target.value, employee: "", teamId: e.target.value === "unassigned" ? "" : filters.teamId })}>
+          <option value="">{lang === "ja" ? "すべての割り当て" : "Tất cả phân công"}</option>
+          <option value="unassigned">{lang === "ja" ? "未割り当て" : "Chờ phân công"}</option>
+          <option value="assigned">{lang === "ja" ? "割り当て済み" : "Đã phân công"}</option>
         </select>
         <input type="date" className="border rounded px-2 py-1.5 text-sm" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} title="Từ ngày" />
         <span className="text-gray-400 self-center">-</span>
@@ -386,7 +394,7 @@ function TasksPageContent() {
               <tbody>
                 {tasks.map((task: any) => (
                   <tr key={task.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-sm">{task.currentAssignee?.fullName || "-"}</td>
+                    <td className="px-4 py-3 font-medium text-sm">{task.currentAssignee?.fullName || (lang === "ja" ? "未割り当て" : "Chờ phân công")}</td>
                     <td className="px-4 py-3 font-mono text-xs">{task.taskCode}</td>
                     <td className="px-4 py-3">
                       <Link href={`/tasks/${task.id}`} className="text-blue-600 hover:underline">{task.taskName}</Link>

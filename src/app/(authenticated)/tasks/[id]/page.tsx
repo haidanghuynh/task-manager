@@ -6,9 +6,11 @@ import { useSession } from "next-auth/react";
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS } from "@/types";
 import { formatDate } from "@/lib/date";
 import type { TaskStatus, TaskPriority } from "@/types";
+import { useLang } from "@/lib/i18n";
 
 export default function TaskDetailPage() {
   const { data: session } = useSession();
+  const { lang } = useLang();
   const user = session?.user as any;
   const params = useParams();
   const router = useRouter();
@@ -21,6 +23,8 @@ export default function TaskDetailPage() {
   const [editData, setEditData] = useState<any>({});
   const [employees, setEmployees] = useState<any[]>([]);
   const [error, setError] = useState("");
+  const [unassignReason, setUnassignReason] = useState("");
+  const [unassigning, setUnassigning] = useState(false);
 
   useEffect(() => {
     fetchTask();
@@ -89,7 +93,7 @@ export default function TaskDetailPage() {
     const response = await fetch(`/api/tasks/${id}/reassign`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId: form.get("employeeId"), reason: form.get("reason") }),
+      body: JSON.stringify({ employeeId: form.get("employeeId"), reason: String(form.get("reason") || "") }),
     });
     const json = await response.json();
     if (!json.success) {
@@ -106,8 +110,34 @@ export default function TaskDetailPage() {
     router.push("/tasks");
   }
 
+  async function handleUnassign(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const confirmed = confirm(lang === "ja"
+      ? "このタスクを未割り当て一覧へ戻しますか？"
+      : "Thu hồi task này về danh sách chờ phân công?");
+    if (!confirmed) return;
+
+    setError("");
+    setUnassigning(true);
+    const response = await fetch(`/api/tasks/${id}/unassign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: unassignReason }),
+    });
+    const json = await response.json();
+    setUnassigning(false);
+    if (!json.success) {
+      setError(json.error?.code === "INVALID_STATE"
+        ? (lang === "ja" ? "完了またはキャンセル済みのタスクは未割り当てに戻せません。" : "Task hoàn thành hoặc đã hủy không thể thu hồi về hàng chờ.")
+        : json.error?.message || (lang === "ja" ? "タスクを未割り当てに戻せません。" : "Không thể thu hồi task về hàng chờ."));
+      return;
+    }
+    router.push("/waiting-tasks");
+  }
+
   const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isAssignee = task && user?.employeeId === task.currentAssigneeId;
+  const isTerminalTask = task?.status === "COMPLETED" || task?.status === "CANCELLED";
 
   if (loading) return <div className="p-6 text-center text-gray-500">Đang tải...</div>;
   if (!task) return <div className="p-6 text-center text-red-500">Không tìm thấy task</div>;
@@ -189,7 +219,7 @@ export default function TaskDetailPage() {
         </div>
         <div>
           <label className="text-xs text-gray-500">Người phụ trách</label>
-          <p className="font-medium mt-1">{task.currentAssignee?.fullName || "-"}</p>
+          <p className="font-medium mt-1">{task.currentAssignee?.fullName || "Chưa phân công"}</p>
         </div>
         <div>
           <label className="text-xs text-gray-500">Ngày bắt đầu dự kiến</label>
@@ -327,9 +357,45 @@ export default function TaskDetailPage() {
                 .filter((employee) => employee.isActive && employee.id !== task.currentAssigneeId)
                 .map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}
             </select>
-            <input name="reason" placeholder="Lý do chuyển task..." className="border rounded px-3 py-1.5 text-sm flex-1 min-w-[200px]" required />
+            <input name="reason" maxLength={1000} placeholder="Lý do chuyển task (không bắt buộc)..." className="border rounded px-3 py-1.5 text-sm flex-1 min-w-[200px]" />
             <button type="submit" className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm">Chuyển</button>
           </form>
+          {task.currentAssigneeId && !isTerminalTask && (
+            <form onSubmit={handleUnassign} data-i18n-ignore className="task-unassign-panel mt-5 rounded-lg border border-orange-200 bg-orange-50 p-4">
+              <h4 className="task-unassign-title text-sm font-semibold text-orange-900">
+                {lang === "ja" ? "未割り当てへ戻す" : "Thu hồi về chờ phân công"}
+              </h4>
+              <p className="mt-1 text-xs text-gray-500">
+                {lang === "ja"
+                  ? "担当者を解除し、このタスクを未割り当てタスク一覧とスケジュールへ戻します。ステータスと進捗は保持されます。"
+                  : "Gỡ người phụ trách và đưa task về bảng/lịch chờ. Trạng thái và tiến độ được giữ nguyên."}
+              </p>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <label className="min-w-[260px] flex-1 text-sm">
+                  <span>{lang === "ja" ? "理由（任意）" : "Lý do thu hồi (không bắt buộc)"}</span>
+                  <input
+                    maxLength={1000}
+                    value={unassignReason}
+                    onChange={(event) => setUnassignReason(event.target.value)}
+                    placeholder={lang === "ja" ? "未割り当てへ戻す理由（任意）..." : "Nhập lý do thu hồi nếu cần..."}
+                    className="mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                  />
+                </label>
+                <button type="submit" disabled={unassigning} className="task-unassign-button rounded bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-700 disabled:opacity-50">
+                  {unassigning
+                    ? (lang === "ja" ? "処理中..." : "Đang thu hồi...")
+                    : (lang === "ja" ? "未割り当てへ戻す" : "Thu hồi về hàng chờ")}
+                </button>
+              </div>
+            </form>
+          )}
+          {task.currentAssigneeId && isTerminalTask && (
+            <p data-i18n-ignore className="mt-5 border-t pt-4 text-xs text-gray-500">
+              {lang === "ja"
+                ? "完了またはキャンセル済みのタスクは未割り当てに戻せません。"
+                : "Task hoàn thành hoặc đã hủy không thể thu hồi về hàng chờ."}
+            </p>
+          )}
         </div>
       )}
     </div>

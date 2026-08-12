@@ -67,15 +67,17 @@ export default function SettingsPage() {
   if (!isAdmin) {
     return (
       <div className="p-6">
-        <h2 className="text-2xl font-bold text-gray-900">Cai dat</h2>
-        <p className="mt-4 p-4 bg-yellow-50 text-yellow-700 rounded-lg">Chỉ Admin mới có quyền truy cập cai đặt.</p>
+        <h2 data-i18n-ignore className="text-2xl font-bold text-gray-900">{lang === "ja" ? "設定" : "Cài đặt"}</h2>
+        <p data-i18n-ignore className="mt-4 p-4 bg-yellow-50 text-yellow-700 rounded-lg">
+          {lang === "ja" ? "管理者のみ設定にアクセスできます。" : "Chỉ Admin mới có quyền truy cập cài đặt."}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Cai đặt</h2>
+      <h2 data-i18n-ignore className="text-2xl font-bold text-gray-900">{lang === "ja" ? "設定" : "Cài đặt"}</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Products */}

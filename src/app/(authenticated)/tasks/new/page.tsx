@@ -55,7 +55,7 @@ export default function NewTaskPage() {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, plannedEndDate: form.plannedEndDate || null }),
     });
     const json = await res.json();
     setLoading(false);
@@ -64,7 +64,7 @@ export default function NewTaskPage() {
       if (json.data.overlaps?.length > 0) {
         alert(`⚠️ Task bị trùng lịch với ${json.data.overlaps.length} task khác! Vẫn tạo thành công.`);
       }
-      router.push(`/tasks/${json.data.task.id}`);
+      router.push(form.assigneeId ? `/tasks/${json.data.task.id}` : "/waiting-tasks");
     } else {
       setError(
         json.error?.code === "TASK_CODE_EXISTS" && lang === "ja"
@@ -101,14 +101,22 @@ export default function NewTaskPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Người phụ trách *</label>
-            <select required value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === "ja" ? "担当者（任意）" : "Người phụ trách (không bắt buộc)"}
+            </label>
+            <select value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})}
               className="w-full border rounded px-3 py-2 text-sm">
-              <option value="">Chọn nhân viên...</option>
+              <option value="">{lang === "ja" ? "未割り当てのまま受け付ける" : "Để trống — chờ phân công"}</option>
               {employees.filter((e: any) => e.isActive).map((e: any) => <option key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</option>)}
             </select>
           </div>
         </div>
+
+        {!form.assigneeId && (
+          <p className="rounded bg-amber-50 p-3 text-sm text-amber-700">
+            {lang === "ja" ? "このタスクは未割り当てタスク一覧に保存され、後で担当者を割り当てます。" : "Task sẽ được lưu vào danh sách chờ và phân công sau."}
+          </p>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -134,8 +142,8 @@ export default function NewTaskPage() {
             {lang === "ja" ? "コード：" : "Mã sẽ là "}
             {form.taskNumber ? `${taskCodePrefix}-${form.taskNumber}` : taskCodePrefix}.
             {lang === "ja"
-              ? " 末尾コードが不要な場合は空欄にしてください。タスクコードは一意である必要があります。"
-              : " Để trống nếu không cần phần mã phía sau; mã task phải là duy nhất."}
+              ? " 末尾コードが不要な場合は空欄にしてください。同じタスクコードも使用できます。"
+              : " Để trống nếu không cần phần mã phía sau; mã task có thể trùng."}
           </p>
         </div>
 

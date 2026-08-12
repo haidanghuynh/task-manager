@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const where: any = {
     deletedAt: null,
+    currentAssigneeId: { not: null },
     plannedStartDate: { lte: end },
     plannedEndDate: { gte: start },
   };

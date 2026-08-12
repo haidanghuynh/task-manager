@@ -1,178 +1,94 @@
-# Task Manager - Zone / Gate / Hunter
+# Task Manager
 
-Ứng dụng web nội bộ quản lý lịch phân công task cho nhân viên trên 3 sản phẩm: **Zone**, **Gate**, **Hunter**.
+Ứng dụng web nội bộ quản lý task và lịch phân công nhân viên theo sản phẩm, nhóm
+và khoảng thời gian. Giao diện hỗ trợ tiếng Việt, tiếng Nhật, light mode và dark
+mode.
 
 ## Tính năng chính
 
-- Đăng nhập với 3 vai trò: Admin, Manager, Employee
-- **Dashboard** tổng quan theo tháng (cards + charts)
-- **Lịch phân công** (Gantt Timeline) - màn hình quan trọng nhất
-  - Nhân viên (hàng) × Ngày trong tháng (cột)
-  - Task bars với màu sắc theo sản phẩm (Zone: xanh, Gate: xanh dương, Hunter: cam)
-  - Highlight ngày hôm nay, weekend
-- **Quản lý Task** CRUD: tạo, xem, sửa, xóa mềm, khôi phục
-- **Quản lý Nhân viên**: danh sách, chi tiết, workload
-- **Phân công lại Task** (reassign) với lịch sử đầy đủ
-- **Phát hiện trùng lịch** (overlap detection)
-- **Báo cáo năm** theo nhân viên + **CSV export**
-- **Lịch sử audit**: assignment history, status history, change logs
-- **Bình luận** trên từng task
+- Đăng nhập bằng username với ba vai trò `ADMIN`, `MANAGER`, `EMPLOYEE`.
+- Quản lý tài khoản, phân quyền và bảo vệ Primary Admin được tạo khi cài đặt.
+- Dashboard, bảng xếp hạng theo thành viên/nhóm và bộ lọc thời gian.
+- Lịch phân công theo người hoặc theo nhóm, hỗ trợ nhiều task chồng thời gian.
+- Quản lý task, mã task tùy chỉnh, chuyển người phụ trách và lịch sử thay đổi.
+- Import/export danh sách task và nhân viên.
+- Quản lý nhân viên, nhóm, trưởng nhóm và sản phẩm.
+- Báo cáo năm và xuất CSV.
+- Giao diện Việt–Nhật và light/dark.
 
-## Tech Stack
+## Công nghệ
 
-| Layer | Technology |
+| Thành phần | Công nghệ |
 |---|---|
-| Frontend | Next.js 15, TypeScript, React 19, Tailwind CSS |
-| Backend | Next.js Route Handlers (API) |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| ORM | Prisma 5 |
-| Auth | NextAuth.js v5 (Credentials + JWT) |
-| Icons | Lucide React |
-| Dates | date-fns |
+| Web | Next.js 16.3, React 19, TypeScript |
+| API | Next.js Route Handlers |
+| Database | SQLite, Prisma 5 |
+| Auth | NextAuth v5 Credentials + JWT |
+| UI | Tailwind CSS 4, Lucide React, Recharts |
 
-## Yêu cầu hệ thống
+## Chạy local
 
-- Node.js 18+
-- npm
-
-## Cài đặt và chạy local
+Yêu cầu Node.js 22 và npm.
 
 ```bash
-# 1. Cài đặt dependencies
 npm install
-
-# 2. Tạo database và migration
-npx prisma migrate dev --name init
-
-# 3. Seed dữ liệu mẫu
-npx tsx prisma/seed.ts
-
-# 4. Chạy dev server
+copy .env.example .env
+npx prisma generate
+npx prisma migrate dev
 npm run dev
 ```
 
-Mở trình duyệt tại: **http://localhost:3000**
+Trên PowerShell có thể thay `copy` bằng `Copy-Item`. Mở URL được Next.js in ra
+terminal, thường là `http://localhost:3000`.
 
-## Production Build
+Hai biến môi trường bắt buộc:
+
+```dotenv
+DATABASE_URL="file:./dev.db"
+AUTH_SECRET="replace-with-a-long-random-secret"
+```
+
+`prisma/seed.ts` chỉ dành cho dữ liệu mẫu khi phát triển và không được bộ cài
+production chạy tự động.
+
+## Kiểm tra production build
 
 ```bash
+npm run lint
 npm run build
 npm start
 ```
 
-## Docker (PostgreSQL)
+## Tài liệu
 
-```bash
-docker compose up -d
+- [Cấu trúc dự án và luồng nghiệp vụ](docs/PROJECT_STRUCTURE.md)
+- [Cách phát triển giao diện Việt Nam - Nhật Bản](docs/I18N.md)
+- [Hướng dẫn phát triển và bảo trì](docs/DEVELOPMENT.md)
+- [Backup và khôi phục database](docs/BACKUP_RESTORE.md)
+- [Flow Task chờ phân công](docs/WAITING_TASK_FLOW.md)
+- [Cài đặt và vận hành trên AlmaLinux 9.8](deploy/almalinux9/README.md)
+
+## Cấu trúc rút gọn
+
+```text
+deploy/almalinux9/  Bộ cài và công cụ vận hành production
+docs/               Tài liệu kỹ thuật
+prisma/             Schema, migrations và seed development
+public/             Logo và static assets
+scripts/            Bootstrap/reset mật khẩu Admin
+src/app/            Trang App Router và API Route Handlers
+src/components/     Component dùng chung
+src/i18n/           Từ điển Việt/Nhật
+src/lib/            Auth, permissions, Prisma, i18n, validation
+src/services/       Nghiệp vụ task và nhân viên
 ```
 
-Sau đó cập nhật `.env` với `DATABASE_URL` PostgreSQL và chạy migration.
+## Quy ước quan trọng
 
-## Tài khoản mặc định
-
-Tất cả tài khoản dùng mật khẩu: **`password123`**
-
-| Email | Vai trò |
-|---|---|
-| admin@example.com | ADMIN |
-| manager@example.com | MANAGER |
-| employee1@example.com | EMPLOYEE (Nguyễn Văn An) |
-| employee2@example.com | EMPLOYEE (Trần Thị Bình) |
-| employee3@example.com | EMPLOYEE (Lê Văn Cường) |
-
-## Cấu trúc dự án
-
-```
-src/
-  app/
-    login/                   # Trang đăng nhập
-    (authenticated)/
-      dashboard/             # Tổng quan
-      schedule/              # Lịch phân công (Gantt)
-      tasks/                 # Danh sách task + tạo mới
-        [id]/                # Chi tiết task
-        new/                 # Tạo task
-      employees/             # Danh sách nhân viên
-      reports/annual/        # Báo cáo năm
-      settings/              # Cài đặt
-    api/
-      auth/[...nextauth]/    # NextAuth API
-      tasks/                 # Tasks CRUD API
-        [id]/
-          comments/          # Comments API
-          reassign/          # Reassign API
-      employees/             # Employees API
-      products/              # Products API
-      schedule/              # Schedule data API
-      reports/annual/        # Annual report API
-  components/
-    layout/                  # Sidebar, SessionProvider
-  lib/
-    auth/                    # NextAuth config
-    permissions/             # Role-based permissions
-    prisma.ts                # Prisma client singleton
-    date/                    # Date utilities (date-fns)
-  services/
-    task.service.ts          # Business logic (task codes, reassign, overlap)
-  types/
-    index.ts                 # TypeScript types + label maps
-prisma/
-  schema.prisma              # Database schema (7 models)
-  seed.ts                    # Seed data (10 employees, 22 tasks)
-  migrations/                # Database migrations
-docker-compose.yml           # PostgreSQL container
-.env.example                 # Environment vars template
-```
-
-## Database Models
-
-| Model | Mô tả |
-|---|---|
-| User | Tài khoản đăng nhập (ADMIN/MANAGER/EMPLOYEE) |
-| Employee | Hồ sơ nhân viên |
-| Product | Sản phẩm (Zone/Gate/Hunter) |
-| Task | Công việc được giao |
-| TaskAssignmentHistory | Lịch sử phân công |
-| TaskStatusHistory | Lịch sử thay đổi trạng thái |
-| TaskChangeLog | Nhật ký thay đổi field |
-| TaskComment | Bình luận trên task |
-
-## Business Rules
-
-- Task codes: `PRODUCT-YEAR-SEQUENCE` (vd: `ZONE-2026-0001`)
-- Khi status → COMPLETED, progress tự động = 100%
-- Xóa mềm (soft delete): set `deletedAt`, không xóa vĩnh viễn
-- Reassign: đóng assignment cũ, tạo mới, ghi change log
-- Phát hiện overlap: `startA <= endB AND endA >= startB`
-- Permissions được enforce ở server-side
-
-## Scripts
-
-| Command | Mô tả |
-|---|---|
-| `npm run dev` | Dev server (port 3000) |
-| `npm run build` | Production build |
-| `npm start` | Production server |
-| `npm run lint` | ESLint |
-| `npx prisma migrate dev` | Tạo/chạy migration |
-| `npx prisma db seed` | Seed dữ liệu (cần config) |
-| `npx tsx prisma/seed.ts` | Chạy seed script thủ công |
-
-## Known Limitations (MVP)
-
-- SQLite cho development (sẽ switch sang PostgreSQL khi có Docker)
-- Chưa có drag-and-drop trên timeline
-- Chưa có i18n đa ngôn ngữ (chỉ tiếng Việt)
-- Chưa có unit/integration/e2e tests
-- Chưa có email notifications
-
-## Future Improvements
-
-- Japanese/English interface (i18n)
-- Working-day calendar + public holidays
-- Drag & drop trên Gantt timeline
-- PDF/Excel export
-- Email/Slack notifications
-- File attachments
-- Approval workflow
-- Leave management
+- Task code có dạng mã sản phẩm hoặc `<PRODUCT_CODE>-<phần tự nhập>`, ví dụ
+  `GATE-2.22.4`; mã trùng được chấp nhận.
+- Một task có một người phụ trách hiện tại và lưu lịch sử mỗi lần chuyển người.
+- Trạng thái `COMPLETED` đặt tiến độ thành 100%.
+- Primary Admin không thể bị hạ quyền, khóa hoặc xóa qua UI/API.
+- Quyền phải được kiểm tra ở server; việc ẩn nút ở giao diện không thay thế kiểm
+  tra API.

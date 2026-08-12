@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   UserCog,
+  Inbox,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -28,6 +29,9 @@ export function Sidebar() {
     { href: "/dashboard", label: t.common.dashboard, icon: LayoutDashboard },
     { href: "/schedule", label: t.common.schedule, icon: Calendar },
     { href: "/tasks", label: t.common.tasks, icon: ListTodo },
+    ...(role === "ADMIN" || role === "MANAGER"
+      ? [{ href: "/waiting-tasks", label: t.common.waitingTasks, icon: Inbox }]
+      : []),
     { href: "/employees", label: t.common.employees, icon: Users },
     { href: "/teams", label: t.common.teams, icon: UsersRound },
     { href: "/reports/annual", label: t.common.reports, icon: FileBarChart },

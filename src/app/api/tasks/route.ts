@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
   const teamId = searchParams.get("teamId") || "";
+  const assignment = searchParams.get("assignment") || "";
   const groupBy = searchParams.get("groupBy") || ""; // "assignee" to group by employee
   const overdueOnly = searchParams.get("overdue") === "true";
   const showDeleted = searchParams.get("showDeleted") === "true";
@@ -46,6 +47,8 @@ export async function GET(req: NextRequest) {
   if (status) where.status = status;
   if (product) where.productId = product;
   if (priority) where.priority = priority;
+  if ((role === "ADMIN" || role === "MANAGER") && assignment === "unassigned") where.currentAssigneeId = null;
+  if ((role === "ADMIN" || role === "MANAGER") && assignment === "assigned") where.currentAssigneeId = { not: null };
 
   if (search) {
     where.OR = [
@@ -63,7 +66,7 @@ export async function GET(req: NextRequest) {
     const parsedEnd = new Date(`${endDate}T23:59:59.999Z`);
     if (!Number.isNaN(parsedEnd.getTime())) where.plannedStartDate = { lte: parsedEnd };
   }
-  if (teamId) {
+  if (teamId && (role === "ADMIN" || role === "MANAGER")) {
     const teamMembers = await prisma.employee.findMany({ where: { teamId }, select: { id: true } });
     where.currentAssigneeId = { in: teamMembers.map((e: any) => e.id) };
     if (teamMembers.length === 0) where.currentAssigneeId = "none";
@@ -221,16 +224,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Product not found or inactive" } }, { status: 400 });
     }
 
-    // Check employee active
-    const employee = await prisma.employee.findUnique({ where: { id: assigneeId } });
-    if (!employee || !employee.isActive) {
-      return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Employee not found or inactive" } }, { status: 400 });
+    if (assigneeId) {
+      const employee = await prisma.employee.findUnique({ where: { id: assigneeId } });
+      if (!employee || !employee.isActive) {
+        return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Employee not found or inactive" } }, { status: 400 });
+      }
     }
-
     const end = plannedEndDate ?? start;
 
     const taskCode = buildTaskCode(product.code, taskNumber);
-    const overlaps = await checkOverlap(assigneeId, start, end);
+    const overlaps = assigneeId ? await checkOverlap(assigneeId, start, end) : [];
 
     const task = await prisma.$transaction(async (tx) => {
       const created = await tx.task.create({
@@ -239,7 +242,7 @@ export async function POST(req: NextRequest) {
           taskName,
           description: description || null,
           productId,
-          currentAssigneeId: assigneeId,
+          currentAssigneeId: assigneeId || null,
           createdById: user.id,
           plannedStartDate: start,
           plannedEndDate: end,
@@ -250,9 +253,11 @@ export async function POST(req: NextRequest) {
           note: note || null,
         },
       });
-      await tx.taskAssignmentHistory.create({
-        data: { taskId: created.id, employeeId: assigneeId, assignedById: user.id, assignedFrom: start },
-      });
+      if (assigneeId) {
+        await tx.taskAssignmentHistory.create({
+          data: { taskId: created.id, employeeId: assigneeId, assignedById: user.id, assignedFrom: start },
+        });
+      }
       await tx.taskStatusHistory.create({
         data: { taskId: created.id, oldStatus: "PLANNED", newStatus: status, changedById: user.id },
       });

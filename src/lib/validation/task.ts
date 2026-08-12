@@ -30,7 +30,7 @@ export const createTaskSchema = z
       })
       .optional()
       .default(""),
-    assigneeId: z.string().min(1),
+    assigneeId: z.string().trim().optional().default(""),
     plannedStartDate: dateString,
     plannedEndDate: dateString.optional().nullable(),
     status: taskStatusSchema.default("PLANNED"),
@@ -64,5 +64,9 @@ export const updateTaskSchema = z.object({
 });
 export const reassignTaskSchema = z.object({
   employeeId: z.string().min(1),
-  reason: z.string().trim().min(1).max(1000),
+  reason: z.string().trim().max(1000).optional().default(""),
+});
+
+export const unassignTaskSchema = z.object({
+  reason: z.string().trim().max(1000).optional().default(""),
 });

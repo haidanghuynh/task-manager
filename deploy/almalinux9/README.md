@@ -66,6 +66,9 @@ khoản thứ hai được tạo tự động.
 - URL: `http://<IP>` hoặc `http://<domain>`
 - Backup SQLite hằng ngày: `/var/backups/task-manager`, giữ 14 ngày
 
+Hướng dẫn kiểm tra, backup thủ công và khôi phục database nằm tại
+[`docs/BACKUP_RESTORE.md`](../../docs/BACKUP_RESTORE.md).
+
 Các lệnh thường dùng:
 
 ```bash
@@ -78,6 +81,45 @@ systemctl list-timers task-manager-backup.timer
 Node.js 22 được cài từ AlmaLinux AppStream để nhận đúng nhãn SELinux cho EL9 và
 vẫn sử dụng V8 JIT. Không dùng `--jitless`, vì chế độ đó làm chậm rõ rệt các thao
 tác đăng nhập, mã hóa mật khẩu và xử lý request.
+
+## Cập nhật source trên production
+
+Pull source mới chưa làm ứng dụng đang chạy tự cập nhật. Next.js production cần
+được build lại và service cần restart. Với bản cài bằng script này, source trong
+`/opt/task-manager` là bản sao và không chứa `.git`; hãy pull tại thư mục source
+ban đầu rồi chạy lại installer:
+
+```bash
+cd /root/task-manager
+git pull --ff-only
+sudo systemctl start task-manager-backup.service
+sudo bash deploy/almalinux9/install.sh
+```
+
+Installer sẽ thực hiện `npm ci`, sinh Prisma Client, chạy migration production,
+build lại ứng dụng và restart service. Installer cũng backup database trước khi
+thay đổi và giữ nguyên:
+
+```text
+/var/lib/task-manager/task-manager.db
+/etc/task-manager/task-manager.env
+```
+
+`git pull`, `npm ci`, `prisma generate`, `npm run build` và restart service không
+xóa dữ liệu cũ. `prisma migrate deploy` có thể thay đổi cấu trúc database theo
+migration nên phải có backup trước khi cập nhật.
+
+Nếu chỉ thay đổi tài liệu `.md`, không cần build hoặc restart ứng dụng.
+
+Không chạy các lệnh sau trên production:
+
+```bash
+npx prisma migrate reset
+npx prisma db push --force-reset
+npx tsx prisma/seed.ts
+```
+
+Các lệnh trên có thể reset database hoặc thêm dữ liệu mẫu.
 
 ## Quên mật khẩu Admin
 
