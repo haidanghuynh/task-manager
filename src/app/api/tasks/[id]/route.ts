@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { checkOverlap } from "@/services/task.service";
 import { updateTaskSchema } from "@/lib/validation/task";
@@ -56,8 +56,11 @@ export async function GET(
   }
 
   // Check permission
-  if (user.role === "EMPLOYEE" && task.currentAssigneeId !== user.employeeId) {
-    return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+  if (user.role === "EMPLOYEE") {
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    if (!task.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId)) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+    }
   }
 
   return NextResponse.json({ success: true, data: task });

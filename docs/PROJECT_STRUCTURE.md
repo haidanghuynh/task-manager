@@ -121,8 +121,14 @@ trách cùng một task.
 | Quản lý nhân viên, nhóm | Có | Có | Không |
 | Tạo/sửa/xóa/chuyển task | Có | Có | Không |
 | Xem toàn bộ task, báo cáo, export | Có | Có | Không |
+| Xem nhân viên, task, lịch và báo cáo trong cùng nhóm | Có | Có | Có |
 | Cập nhật task của chính mình | Có | Có | Có |
 | Khôi phục task và xem audit đầy đủ | Có | Không | Không |
+
+Tài khoản `EMPLOYEE` chỉ đọc được dữ liệu của các nhân viên đang hoạt động có cùng
+`teamId`. Nếu nhân viên chưa thuộc nhóm, phạm vi xem tự động thu hẹp về chính nhân
+viên đó. Quyền cập nhật trạng thái, tiến độ, ngày thực tế, ghi chú và bình luận vẫn
+chỉ áp dụng cho task đang được giao cho chính tài khoản đó; task của đồng đội là chỉ đọc.
 
 Primary Admin được tạo lúc cài đặt có `isPrimaryAdmin = true`, không thể hạ
 quyền, khóa hoặc xóa qua UI/API. Admin khác có thể được tạo và quản lý trong UI.

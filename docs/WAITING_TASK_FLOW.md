@@ -111,7 +111,11 @@ GATE-2.22.4,Fix login,,GATE,,2026-08-13,2026-08-15,,,PLANNED,0,HIGH,
 | Tạo/import/sửa/xóa task chờ | Có | Có | Không |
 | Phân công hàng loạt | Có | Có | Không |
 | Thu hồi task đã giao về hàng chờ | Có | Có | Không |
-| Xem task sau khi được giao | Có | Có | Task của mình |
+| Xem task sau khi được giao | Có | Có | Task của cùng nhóm |
+
+Nhân viên không xem được hàng chờ. Sau khi task được phân công, nhân viên cùng nhóm
+có thể xem task trên danh sách, chi tiết, lịch phân công, tổng quan và báo cáo. Chỉ
+người đang phụ trách task mới được cập nhật hoặc bình luận task đó.
 
 ## API liên quan
 

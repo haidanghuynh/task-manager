@@ -9,6 +9,7 @@ export interface AppUser {
   id: string;
   role: AppRole;
   employeeId: string | null;
+  teamId: string | null;
 }
 export async function getCurrentUser(): Promise<AppUser | null> {
   const session = await auth();
@@ -25,7 +26,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
       role: true,
       employeeId: true,
       isActive: true,
-      employee: { select: { isActive: true } },
+      employee: { select: { isActive: true, teamId: true } },
     },
   });
 
@@ -42,5 +43,25 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     id: user.id,
     role: user.role as AppRole,
     employeeId: user.employeeId,
+    teamId: user.employee?.teamId ?? null,
   };
+}
+
+/**
+ * Returns the employee IDs an Employee account may read.
+ * Employees without a team remain limited to their own data.
+ * ADMIN and MANAGER are unrestricted, so this helper returns null for them.
+ */
+export async function getVisibleEmployeeIds(user: AppUser): Promise<string[] | null> {
+  if (user.role !== "EMPLOYEE") return null;
+  if (!user.employeeId) return [];
+  if (!user.teamId) return [user.employeeId];
+
+  const members = await prisma.employee.findMany({
+    where: { teamId: user.teamId, isActive: true },
+    select: { id: true },
+  });
+
+  const ids = members.map((member) => member.id);
+  return ids.includes(user.employeeId) ? ids : [user.employeeId, ...ids];
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { deleteEmployeesPermanently } from "@/services/employee.service";
 
@@ -13,8 +13,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: { team: true, tasks: { where: { deletedAt: null }, include: { product: true }, orderBy: { plannedStartDate: "desc" }, take: 20 } },
   });
   if (!emp) return NextResponse.json({ success: false, error: { code: "NOT_FOUND" } }, { status: 404 });
-  if (user.role === "EMPLOYEE" && user.employeeId !== emp.id) {
-    return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (user.role === "EMPLOYEE") {
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    if (!visibleEmployeeIds?.includes(emp.id)) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+    }
   }
   return NextResponse.json({ success: true, data: emp });
 }

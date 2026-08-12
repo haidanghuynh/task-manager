@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { buildTaskCode, checkOverlap } from "@/services/task.service";
 import { createTaskSchema } from "@/lib/validation/task";
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   }
 
   const role = user.role;
-  const employeeId = user.employeeId;
+  const visibleEmployeeIds = await getVisibleEmployeeIds(user);
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1", 10) || 1);
@@ -37,7 +37,9 @@ export async function GET(req: NextRequest) {
   }
 
   if (role === "EMPLOYEE") {
-    where.currentAssigneeId = employeeId;
+    where.currentAssigneeId = employee && visibleEmployeeIds?.includes(employee)
+      ? employee
+      : { in: visibleEmployeeIds ?? [] };
   }
 
   if (employee && (role === "ADMIN" || role === "MANAGER")) {

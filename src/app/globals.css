@@ -64,6 +64,7 @@ textarea {
 
 :root[data-theme="dark"] .bg-blue-50,
 :root[data-theme="dark"] .bg-blue-100 { background-color: #172554; }
+:root[data-theme="dark"] .text-blue-600 { color: lab(99 0.01 -0.66); }
 :root[data-theme="dark"] .text-blue-700 { color: #93c5fd; }
 :root[data-theme="dark"] .bg-green-50,
 :root[data-theme="dark"] .bg-green-100 { background-color: #052e16; }

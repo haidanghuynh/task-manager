@@ -6,6 +6,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
   const teams = await prisma.team.findMany({
+    where: user.role === "EMPLOYEE" ? { id: user.teamId ?? "__no_team__" } : undefined,
     include: { lead: { select: { id: true, fullName: true, employeeCode: true } }, _count: { select: { members: true, employees: true } } },
     orderBy: { name: "asc" },
   });

@@ -318,7 +318,7 @@ export default function TaskDetailPage() {
             <p className="text-sm mt-1">{c.content}</p>
           </div>
         ))}
-        <div className="flex gap-2 mt-3">
+        {(isAssignee || isManager) && <div className="flex gap-2 mt-3">
           <input
             type="text"
             value={newComment}
@@ -327,7 +327,7 @@ export default function TaskDetailPage() {
             className="border rounded px-3 py-1.5 text-sm flex-1"
           />
           <button onClick={handleComment} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Gửi</button>
-        </div>
+        </div>}
       </div>
 
       {/* Assignment History */}

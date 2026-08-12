@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
   const employee = searchParams.get("employee") || "";
+  const visibleEmployeeIds = await getVisibleEmployeeIds(user);
 
   const start = new Date(year, 0, 1);
   const end = new Date(year, 11, 31, 23, 59, 59);
@@ -18,8 +19,13 @@ export async function GET(req: NextRequest) {
     plannedEndDate: { gte: start },
   };
 
-  if (employee) where.currentAssigneeId = employee;
-  if (user.role === "EMPLOYEE") where.currentAssigneeId = user.employeeId;
+  if (user.role === "EMPLOYEE") {
+    where.currentAssigneeId = employee && visibleEmployeeIds?.includes(employee)
+      ? employee
+      : { in: visibleEmployeeIds ?? [] };
+  } else if (employee) {
+    where.currentAssigneeId = employee;
+  }
 
   const tasks = await prisma.task.findMany({
     where,

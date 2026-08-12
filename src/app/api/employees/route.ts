@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -7,11 +7,26 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
 
   if (user.role === "EMPLOYEE") {
-    const emp = await prisma.employee.findUnique({
-      where: { id: user.employeeId! },
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search") || "";
+    const where = {
+      id: { in: visibleEmployeeIds ?? [] },
+      isActive: true,
+      ...(search ? { OR: [{ fullName: { contains: search } }, { employeeCode: { contains: search } }] } : {}),
+    };
+    const employees = await prisma.employee.findMany({
+      where,
       include: { _count: { select: { tasks: { where: { deletedAt: null } } } }, team: true },
+      orderBy: { employeeCode: "asc" },
     });
-    return NextResponse.json({ success: true, data: { employees: emp ? [emp] : [], pagination: { total: emp ? 1 : 0 } } });
+    return NextResponse.json({
+      success: true,
+      data: {
+        employees,
+        pagination: { page: 1, pageSize: employees.length, total: employees.length, totalPages: 1 },
+      },
+    });
   }
 
   const { searchParams } = new URL(req.url);

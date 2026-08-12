@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { RankingChart, type RankingEntry } from "@/components/dashboard/ranking-chart";
@@ -79,7 +79,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   if (!user) redirect("/login");
 
   const userRole = user.role;
-  const userEmployeeId = user.employeeId;
+  const visibleEmployeeIds = await getVisibleEmployeeIds(user);
 
   const now = new Date();
   const period = resolveDashboardPeriod(await searchParams, now);
@@ -92,7 +92,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   };
 
   if (userRole === "EMPLOYEE") {
-    taskFilterBase.currentAssigneeId = userEmployeeId;
+    taskFilterBase.currentAssigneeId = { in: visibleEmployeeIds ?? [] };
   }
 
   // Dashboard stats
@@ -149,9 +149,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   let memberRanking: RankingEntry[] = [];
   let teamRanking: RankingEntry[] = [];
-  if (userRole === "ADMIN" || userRole === "MANAGER") {
+  if (userRole === "ADMIN" || userRole === "MANAGER" || userRole === "EMPLOYEE") {
     const employees = await prisma.employee.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(userRole === "EMPLOYEE" ? { id: { in: visibleEmployeeIds ?? [] } } : {}),
+      },
       select: {
         id: true, employeeCode: true, fullName: true,
         team: { select: { id: true, name: true } },
@@ -256,7 +259,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
 
-      {(userRole === "ADMIN" || userRole === "MANAGER") && (
+      {(userRole === "ADMIN" || userRole === "MANAGER" || userRole === "EMPLOYEE") && (
         <RankingChart
           members={memberRanking}
           teams={teamRanking}
