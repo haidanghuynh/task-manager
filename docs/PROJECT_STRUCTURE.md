@@ -132,6 +132,9 @@ chỉ áp dụng cho task đang được giao cho chính tài khoản đó; task
 
 Primary Admin được tạo lúc cài đặt có `isPrimaryAdmin = true`, không thể hạ
 quyền, khóa hoặc xóa qua UI/API. Admin khác có thể được tạo và quản lý trong UI.
+Tài khoản `MANAGER` và `EMPLOYEE` bắt buộc liên kết với một hồ sơ nhân viên đang
+hoạt động; mỗi hồ sơ nhân viên chỉ liên kết với một tài khoản. Tài khoản `ADMIN`
+không bắt buộc liên kết nhân viên.
 
 ## Luồng nghiệp vụ đáng chú ý
 

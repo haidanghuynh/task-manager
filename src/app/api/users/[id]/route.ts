@@ -31,8 +31,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return error(400, "VALIDATION_ERROR", "Name and a valid username are required");
   }
   if (!APP_ROLES.includes(role)) return error(400, "INVALID_ROLE", "Invalid role");
-  if (role === "EMPLOYEE" && !employeeId) {
-    return error(400, "EMPLOYEE_REQUIRED", "Employee accounts must be linked to an employee");
+  if ((role === "EMPLOYEE" || role === "MANAGER") && !employeeId) {
+    return error(400, "EMPLOYEE_REQUIRED", "Employee and Manager accounts must be linked to an employee");
   }
   if (employeeId) {
     const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { isActive: true } });
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         name, username, role, isActive,
-        employeeId: role === "EMPLOYEE" ? employeeId : employeeId || null,
+        employeeId: role === "EMPLOYEE" || role === "MANAGER" ? employeeId : employeeId || null,
         ...(password ? { passwordHash: await hash(password, 12) } : {}),
       },
       select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true, isPrimaryAdmin: true },

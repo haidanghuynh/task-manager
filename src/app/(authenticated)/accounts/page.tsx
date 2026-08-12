@@ -27,7 +27,7 @@ const copy = {
     confirmLock: "Khóa tài khoản này? Người dùng sẽ không thể đăng nhập.",
     saved: "Đã cập nhật tài khoản.", created: "Đã tạo tài khoản.",
     genericError: "Không thể lưu tài khoản.",
-    employeeRequired: "Tài khoản Nhân viên phải liên kết với một hồ sơ nhân viên.",
+    employeeRequired: "Tài khoản Quản lý và Nhân viên phải liên kết với một hồ sơ nhân viên.",
     duplicate: "Tên đăng nhập hoặc nhân viên này đã được liên kết với tài khoản khác.",
     invalidUsername: "Tên đăng nhập phải có 3-50 ký tự và chỉ gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.",
     weakPassword: "Mật khẩu phải có ít nhất 8 ký tự.",
@@ -53,7 +53,7 @@ const copy = {
     confirmLock: "このアカウントをロックしますか？ログインできなくなります。",
     saved: "アカウントを更新しました。", created: "アカウントを作成しました。",
     genericError: "アカウントを保存できません。",
-    employeeRequired: "社員アカウントは社員情報との連携が必要です。",
+    employeeRequired: "マネージャーと社員のアカウントは社員情報との連携が必要です。",
     duplicate: "このユーザー名または社員は別のアカウントに連携されています。",
     invalidUsername: "ユーザー名は3～50文字で、英数字・ピリオド・アンダースコア・ハイフンのみ使用できます。",
     weakPassword: "パスワードは8文字以上で入力してください。",
@@ -140,7 +140,7 @@ export default function AccountsPage() {
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    if (form.role === "EMPLOYEE" && !form.employeeId) { setErrorMessage(text.employeeRequired); return; }
+    if ((form.role === "EMPLOYEE" || form.role === "MANAGER") && !form.employeeId) { setErrorMessage(text.employeeRequired); return; }
     setSaving(true); setErrorMessage("");
     const response = await fetch(editing ? `/api/users/${editing.id}` : "/api/users", {
       method: editing ? "PATCH" : "POST",
@@ -188,8 +188,8 @@ export default function AccountsPage() {
             <label className="space-y-1 text-sm"><span>{text.name}</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{text.username}</span><input required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]+" autoComplete="username" value={form.username} placeholder={text.usernameHint} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{editing ? text.newPassword : text.password}</span><input required={!editing} minLength={8} type="password" value={form.password} placeholder={text.passwordHint} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
-            <label className="space-y-1 text-sm"><span>{text.role}</span><select disabled={editing?.isPrimaryAdmin} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, employeeId: e.target.value === "EMPLOYEE" ? form.employeeId : "" })} className="w-full rounded border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
-            {form.role === "EMPLOYEE" && <label className="space-y-1 text-sm md:col-span-2"><span>{text.employee}</span><select required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.selectEmployee}</option>{employeeOptions.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} — {employee.fullName}</option>)}</select></label>}
+            <label className="space-y-1 text-sm"><span>{text.role}</span><select disabled={editing?.isPrimaryAdmin} value={form.role} onChange={(e) => { const role = e.target.value as Role; setForm({ ...form, role, employeeId: role === "ADMIN" ? "" : form.employeeId }); }} className="w-full rounded border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
+            {(form.role === "EMPLOYEE" || form.role === "MANAGER") && <label className="space-y-1 text-sm md:col-span-2"><span>{text.employee}</span><select required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.selectEmployee}</option>{employeeOptions.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} — {employee.fullName}</option>)}</select></label>}
           </div>
           {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
           <div className="flex gap-2"><button disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">{editing ? text.update : text.create}</button><button type="button" onClick={closeForm} className="rounded border px-4 py-2 text-sm">{text.cancel}</button></div>

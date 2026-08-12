@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
   }
   if (password.length < 8) return error(400, "WEAK_PASSWORD", "Password must contain at least 8 characters");
   if (!APP_ROLES.includes(role)) return error(400, "INVALID_ROLE", "Invalid role");
-  if (role === "EMPLOYEE" && !employeeId) {
-    return error(400, "EMPLOYEE_REQUIRED", "Employee accounts must be linked to an employee");
+  if ((role === "EMPLOYEE" || role === "MANAGER") && !employeeId) {
+    return error(400, "EMPLOYEE_REQUIRED", "Employee and Manager accounts must be linked to an employee");
   }
   if (employeeId) {
     const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { isActive: true } });
