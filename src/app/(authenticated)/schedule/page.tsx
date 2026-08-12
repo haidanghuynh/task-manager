@@ -85,6 +85,7 @@ export default function SchedulePage() {
   const [teams, setTeams] = useState<ScheduleTeam[]>([]);
   const [products, setProducts] = useState<ScheduleProduct[]>([]);
   const [viewMode, setViewMode] = useState<"employees" | "teams">("teams");
+  const [showCompleted, setShowCompleted] = useState(false);
   const [collapsedTeams, setCollapsedTeams] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -109,7 +110,10 @@ export default function SchedulePage() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/schedule?month=${monthStr}`)
+    const query = new URLSearchParams({ month: monthStr });
+    if (showCompleted) query.set("includeCompleted", "true");
+
+    fetch(`/api/schedule?${query}`)
       .then(async (response) => {
         const json = await response.json();
         if (!response.ok || !json.success) throw new Error("Unable to load schedule");
@@ -128,7 +132,7 @@ export default function SchedulePage() {
       });
 
     return () => { cancelled = true; };
-  }, [monthStr, reloadToken]);
+  }, [monthStr, reloadToken, showCompleted]);
 
   const daysInMonth = useMemo(() => {
     const days = [];
@@ -274,6 +278,18 @@ export default function SchedulePage() {
               </button>
             </div>
           )}
+          <label data-i18n-ignore className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={showCompleted}
+              onChange={(event) => {
+                setLoading(true);
+                setLoadFailed(false);
+                setShowCompleted(event.target.checked);
+              }}
+            />
+            <span>{lang === "ja" ? "完了・キャンセル済みを表示" : "Hiển thị task hoàn thành/đã hủy"}</span>
+          </label>
           <button data-i18n-ignore onClick={prevMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">
             {lang === "ja" ? "← 前へ" : "← Trước"}
           </button>

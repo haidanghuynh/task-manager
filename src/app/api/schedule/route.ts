@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   const month = searchParams.get("month") || ""; // format: "2026-08"
   const product = searchParams.get("product") || "";
   const employee = searchParams.get("employee") || "";
+  const includeCompleted = searchParams.get("includeCompleted") === "true";
   const visibleEmployeeIds = await getVisibleEmployeeIds(user);
 
   const [year, monthNum] = month ? month.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
     plannedEndDate: { gte: start },
   };
 
+  if (!includeCompleted) where.status = { notIn: ["COMPLETED", "CANCELLED"] };
   if (product) where.productId = product;
   if (user.role === "EMPLOYEE") {
     where.currentAssigneeId = employee && visibleEmployeeIds?.includes(employee)
