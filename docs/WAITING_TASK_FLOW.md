@@ -117,6 +117,9 @@ Nhân viên không xem được hàng chờ. Sau khi task được phân công, 
 có thể xem task trên danh sách, chi tiết, lịch phân công, tổng quan và báo cáo. Chỉ
 người đang phụ trách task mới được cập nhật hoặc bình luận task đó.
 
+Màn hình **Danh sách task** chỉ hiển thị task đã phân công. Task chưa phân công chỉ
+hiển thị tại màn hình **Task chờ phân công** để tránh trùng dữ liệu giữa hai nơi.
+
 ## API liên quan
 
 - `POST /api/tasks` với `assigneeId` rỗng: tạo task chờ.
