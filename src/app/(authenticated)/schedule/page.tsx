@@ -326,8 +326,8 @@ export default function SchedulePage() {
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border bg-white">
-          <div className="sticky top-0 z-30 flex overflow-hidden border-b bg-white shadow-[0_2px_5px_rgba(15,23,42,0.08)]">
+        <div className="relative isolate rounded-lg border bg-white">
+          <div className="sticky top-0 z-30 flex overflow-hidden rounded-t-[7px] border-b bg-white shadow-[0_2px_5px_rgba(15,23,42,0.08)]">
             <div className="z-40 w-[200px] shrink-0 border-r bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[2px_0_4px_rgba(15,23,42,0.06)]">
                 {viewMode === "teams"
                   ? (lang === "ja" ? "チーム／社員" : "Nhóm / Nhân viên")
@@ -358,7 +358,7 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto" onScroll={syncStickyDays}>
+          <div className="overflow-x-auto rounded-b-[7px]" onScroll={syncStickyDays}>
             <div className="min-w-[800px]" style={{ minWidth: `${200 + daysInMonth.length * 28}px` }}>
 
             {viewMode === "employees" ? employees.map(renderEmployeeRow) : (
