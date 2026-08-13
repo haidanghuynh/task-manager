@@ -208,7 +208,7 @@ export default function SchedulePage() {
     const rowHeight = laneCount * 26 + 8;
     return (
       <div key={emp.id} className="grid border-b hover:bg-gray-50" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
-        <div className="px-3 py-2 border-r flex items-center" style={{ minHeight: `${rowHeight}px` }}>
+        <div className="sticky left-0 z-20 flex items-center border-r bg-white px-3 py-2 shadow-[2px_0_4px_rgba(15,23,42,0.06)]" style={{ minHeight: `${rowHeight}px` }}>
           <div>
             <p className="text-sm font-medium text-gray-900 truncate">{emp.fullName}</p>
             <p className="text-xs text-gray-400">{emp.employeeCode}</p>
@@ -319,10 +319,10 @@ export default function SchedulePage() {
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border overflow-auto">
+        <div className="max-h-[calc(100vh-220px)] min-h-[320px] overflow-auto rounded-lg border bg-white">
           <div className="min-w-[800px]">
-            <div className="grid sticky top-0 bg-white z-10 border-b" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
-              <div className="px-3 py-2 font-medium text-sm text-gray-700 border-r">
+            <div className="sticky top-0 z-30 grid border-b bg-white shadow-[0_2px_5px_rgba(15,23,42,0.08)]" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
+              <div className="sticky left-0 z-40 border-r bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[2px_0_4px_rgba(15,23,42,0.06)]">
                 {viewMode === "teams"
                   ? (lang === "ja" ? "チーム／社員" : "Nhóm / Nhân viên")
                   : (lang === "ja" ? "社員" : "Nhân viên")}
@@ -353,7 +353,7 @@ export default function SchedulePage() {
                         type="button"
                         onClick={() => toggleTeam(team.id)}
                         aria-expanded={!collapsed}
-                        className="flex w-full items-center gap-2 border-b bg-gray-100 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        className="sticky left-0 z-20 flex w-full items-center gap-2 border-b bg-gray-100 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
                       >
                         <span aria-hidden="true" className="w-3 text-xs">{collapsed ? "▸" : "▾"}</span>
                         <span>{team.icon}</span>
@@ -375,7 +375,7 @@ export default function SchedulePage() {
                       type="button"
                       onClick={() => toggleTeam(unassignedTeamKey)}
                       aria-expanded={!collapsedTeams.has(unassignedTeamKey)}
-                      className="flex w-full items-center gap-2 border-b bg-gray-100 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                      className="sticky left-0 z-20 flex w-full items-center gap-2 border-b bg-gray-100 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
                     >
                       <span aria-hidden="true" className="w-3 text-xs">{collapsedTeams.has(unassignedTeamKey) ? "▸" : "▾"}</span>
                       <span>{lang === "ja" ? "チーム未所属" : "Chưa có nhóm"}</span>
