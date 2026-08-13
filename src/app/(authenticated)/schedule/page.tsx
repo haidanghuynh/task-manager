@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, type UIEvent } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n";
 
@@ -90,6 +90,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const stickyDaysRef = useRef<HTMLDivElement>(null);
 
   const currentMonth = visibleMonth.getMonth();
   const currentYear = visibleMonth.getFullYear();
@@ -166,6 +167,12 @@ export default function SchedulePage() {
     setLoading(true);
     setLoadFailed(false);
     setReloadToken((value) => value + 1);
+  };
+
+  const syncStickyDays = (event: UIEvent<HTMLDivElement>) => {
+    if (stickyDaysRef.current) {
+      stickyDaysRef.current.style.transform = `translateX(-${event.currentTarget.scrollLeft}px)`;
+    }
   };
 
   const today = new Date();
@@ -319,14 +326,22 @@ export default function SchedulePage() {
           </button>
         </div>
       ) : (
-        <div className="max-h-[calc(100vh-220px)] min-h-[320px] overflow-auto rounded-lg border bg-white">
-          <div className="min-w-[800px]">
-            <div className="sticky top-0 z-30 grid border-b bg-white shadow-[0_2px_5px_rgba(15,23,42,0.08)]" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
-              <div className="sticky left-0 z-40 border-r bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[2px_0_4px_rgba(15,23,42,0.06)]">
+        <div className="rounded-lg border bg-white">
+          <div className="sticky top-0 z-30 flex overflow-hidden border-b bg-white shadow-[0_2px_5px_rgba(15,23,42,0.08)]">
+            <div className="z-40 w-[200px] shrink-0 border-r bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[2px_0_4px_rgba(15,23,42,0.06)]">
                 {viewMode === "teams"
                   ? (lang === "ja" ? "チーム／社員" : "Nhóm / Nhân viên")
                   : (lang === "ja" ? "社員" : "Nhân viên")}
-              </div>
+            </div>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <div
+                ref={stickyDaysRef}
+                className="grid h-full will-change-transform"
+                style={{
+                  gridTemplateColumns: `repeat(${daysInMonth.length}, minmax(28px, 1fr))`,
+                  minWidth: `${daysInMonth.length * 28}px`,
+                }}
+              >
               {daysInMonth.map((d, i) => (
                 <div
                   key={i}
@@ -339,7 +354,12 @@ export default function SchedulePage() {
                   {isToday(d) && <div data-i18n-ignore className="text-[9px] text-blue-500">{lang === "ja" ? "今日" : "H.nay"}</div>}
                 </div>
               ))}
+              </div>
             </div>
+          </div>
+
+          <div className="overflow-x-auto" onScroll={syncStickyDays}>
+            <div className="min-w-[800px]" style={{ minWidth: `${200 + daysInMonth.length * 28}px` }}>
 
             {viewMode === "employees" ? employees.map(renderEmployeeRow) : (
               <>
@@ -391,6 +411,7 @@ export default function SchedulePage() {
                 )}
               </>
             )}
+            </div>
           </div>
         </div>
       )}
