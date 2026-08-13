@@ -35,6 +35,38 @@ DEFAULT_SOURCE_DIR="$(cd -- "${SCRIPT_DIR}/../.." && pwd -P)"
 say() { printf '%s\n' "$*"; }
 fail() { printf 'LOI: %s\n' "$*" >&2; exit 1; }
 
+available_bytes() {
+  df -PB1 "$1" | awk 'NR == 2 { print $4 }'
+}
+
+require_free_space() {
+  local path="$1"
+  local required="$2"
+  local available
+  available="$(available_bytes "$path")"
+  [[ "$available" =~ ^[0-9]+$ ]] || fail "Khong doc duoc dung luong trong tai $path."
+  (( available >= required )) || fail "Khong du dung luong tai $path. Can it nhat $((required / 1024 / 1024)) MiB, hien con $((available / 1024 / 1024)) MiB."
+}
+
+cleanup_invalid_app_backups() {
+  local backup
+  while IFS= read -r -d '' backup; do
+    if ! gzip -t -- "$backup" 2>/dev/null; then
+      say "Xoa file backup app bi hong: $backup"
+      rm -f -- "$backup"
+    fi
+  done < <(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'app-before-install-*.tar.gz' -print0)
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name '.app-before-install-*.tmp' -delete
+}
+
+prune_app_backups() {
+  local -a backups=()
+  mapfile -t backups < <(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'app-before-install-*.tar.gz' -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-)
+  if (( ${#backups[@]} > 3 )); then
+    printf '%s\0' "${backups[@]:3}" | xargs -0r rm -f --
+  fi
+}
+
 usage() {
   cat <<'EOF'
 Cai Task Manager tren AlmaLinux 9.x (khuyen nghi 9.8).
@@ -205,13 +237,36 @@ mkdir -p "$APP_DIR" "$DATA_DIR" "$BACKUP_DIR"
 install -d -m 0750 -o root -g "$APP_GROUP" "$ENV_DIR"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+cleanup_invalid_app_backups
+prune_app_backups
 if [[ -f "${APP_DIR}/package.json" ]]; then
   say "Sao luu ban ung dung cu..."
-  tar -czf "${BACKUP_DIR}/app-before-install-${TIMESTAMP}.tar.gz" -C "$APP_DIR" .
+  require_free_space "$BACKUP_DIR" $((100 * 1024 * 1024))
+  APP_BACKUP="${BACKUP_DIR}/app-before-install-${TIMESTAMP}.tar.gz"
+  APP_BACKUP_TMP="${BACKUP_DIR}/.app-before-install-${TIMESTAMP}.tmp"
+  if ! tar -czf "$APP_BACKUP_TMP" \
+    --exclude='./node_modules' --exclude='./.next' --exclude='./.git' \
+    --exclude='./.env' --exclude='./.backups' --exclude='./.logs' \
+    --exclude='./prisma/*.db' --exclude='./prisma/*.db-journal' \
+    -C "$APP_DIR" .; then
+    rm -f -- "$APP_BACKUP_TMP"
+    fail "Khong the sao luu source cu. Kiem tra dung luong bang: df -h $BACKUP_DIR"
+  fi
+  mv -- "$APP_BACKUP_TMP" "$APP_BACKUP"
+  prune_app_backups
 fi
 if [[ -f "${DATA_DIR}/task-manager.db" ]]; then
   say "Sao luu database hien tai..."
-  sqlite3 "${DATA_DIR}/task-manager.db" ".backup '${BACKUP_DIR}/db-before-install-${TIMESTAMP}.db'"
+  DB_SIZE="$(stat -c %s "${DATA_DIR}/task-manager.db")"
+  require_free_space "$BACKUP_DIR" $((DB_SIZE + 50 * 1024 * 1024))
+  DB_BACKUP="${BACKUP_DIR}/db-before-install-${TIMESTAMP}.db"
+  DB_BACKUP_TMP="${DB_BACKUP}.tmp"
+  rm -f -- "$DB_BACKUP_TMP"
+  if ! sqlite3 "${DATA_DIR}/task-manager.db" ".backup '${DB_BACKUP_TMP}'"; then
+    rm -f -- "$DB_BACKUP_TMP"
+    fail "Khong the sao luu database. Kiem tra dung luong bang: df -h $BACKUP_DIR"
+  fi
+  mv -- "$DB_BACKUP_TMP" "$DB_BACKUP"
 fi
 
 say "[4/9] Sao chep source va cai dependencies..."

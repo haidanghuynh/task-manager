@@ -105,6 +105,22 @@ thay đổi và giữ nguyên:
 /etc/task-manager/task-manager.env
 ```
 
+Backup source trước cập nhật không chứa `node_modules`, `.next`, `.git`, file môi
+trường hoặc SQLite vì các phần này được tạo lại hay sao lưu riêng. Installer giữ
+3 backup source gần nhất, kiểm tra dung lượng trống và chỉ đổi tên file backup sau
+khi ghi thành công; file backup hỏng/dở dang sẽ được xóa ở lần chạy kế tiếp.
+
+Nếu gặp `No space left on device`, kiểm tra trước khi chạy lại:
+
+```bash
+df -h /var/backups/task-manager /var/lib/task-manager /opt/task-manager
+df -i /var/backups/task-manager
+du -sh /var/backups/task-manager/* 2>/dev/null | sort -h
+```
+
+Không xóa file `db-before-install-*.db` hoặc `task-manager-*.db` khi chưa xác định
+đã có một bản backup database tốt khác.
+
 `git pull`, `npm ci`, `prisma generate`, `npm run build` và restart service không
 xóa dữ liệu cũ. `prisma migrate deploy` có thể thay đổi cấu trúc database theo
 migration nên phải có backup trước khi cập nhật.
