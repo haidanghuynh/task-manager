@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useLang } from "@/lib/i18n";
+import { APP_PERMISSIONS, DEFAULT_PERMISSIONS, withPermissionDependencies, type AppPermission } from "@/lib/permissions";
 
 type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
 type EmployeeOption = { id: string; employeeCode: string; fullName: string; user: { id: string } | null };
 type Account = {
   id: string; name: string; username: string; role: Role; employeeId: string | null;
+  permissions: AppPermission[];
   isActive: boolean; isPrimaryAdmin: boolean; createdAt: string;
   employee: { employeeCode: string; fullName: string; isActive: boolean } | null;
 };
@@ -28,6 +30,7 @@ const copy = {
     saved: "Đã cập nhật tài khoản.", created: "Đã tạo tài khoản.",
     genericError: "Không thể lưu tài khoản.",
     employeeRequired: "Tài khoản Quản lý và Nhân viên phải liên kết với một hồ sơ nhân viên.",
+    permissions: "Quyền chi tiết", allPermissions: "Chọn tất cả", clearPermissions: "Bỏ chọn tất cả",
     duplicate: "Tên đăng nhập hoặc nhân viên này đã được liên kết với tài khoản khác.",
     invalidUsername: "Tên đăng nhập phải có 3-50 ký tự và chỉ gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.",
     weakPassword: "Mật khẩu phải có ít nhất 8 ký tự.",
@@ -54,6 +57,7 @@ const copy = {
     saved: "アカウントを更新しました。", created: "アカウントを作成しました。",
     genericError: "アカウントを保存できません。",
     employeeRequired: "マネージャーと社員のアカウントは社員情報との連携が必要です。",
+    permissions: "詳細権限", allPermissions: "すべて選択", clearPermissions: "すべて解除",
     duplicate: "このユーザー名または社員は別のアカウントに連携されています。",
     invalidUsername: "ユーザー名は3～50文字で、英数字・ピリオド・アンダースコア・ハイフンのみ使用できます。",
     weakPassword: "パスワードは8文字以上で入力してください。",
@@ -67,7 +71,23 @@ const copy = {
   },
 };
 
-const blankForm = { name: "", username: "", password: "", role: "EMPLOYEE" as Role, employeeId: "" };
+const permissionLabels: Record<AppPermission, { vi: string; ja: string }> = {
+  TASK_VIEW: { vi: "Xem task của nhóm", ja: "チームのタスクを表示" },
+  TASK_CREATE: { vi: "Tạo task", ja: "タスク作成" },
+  TASK_EDIT: { vi: "Sửa task", ja: "タスク編集" },
+  TASK_DELETE: { vi: "Xóa task", ja: "タスク削除" },
+  TASK_ASSIGN: { vi: "Phân công, chuyển và thu hồi task", ja: "タスクの割当・変更・回収" },
+  TASK_IMPORT_EXPORT: { vi: "Import và export task", ja: "タスクのインポート・エクスポート" },
+  TASK_UPDATE_OWN: { vi: "Cập nhật và bình luận task của mình", ja: "自分のタスク更新・コメント" },
+  SCHEDULE_VIEW: { vi: "Xem lịch phân công", ja: "割当スケジュールを表示" },
+  REPORT_VIEW: { vi: "Xem báo cáo", ja: "レポートを表示" },
+  EMPLOYEE_VIEW: { vi: "Xem danh sách nhân viên", ja: "社員一覧を表示" },
+  EMPLOYEE_MANAGE: { vi: "Tạo và sửa nhân viên", ja: "社員の作成・編集" },
+  EMPLOYEE_IMPORT_EXPORT: { vi: "Import và export nhân viên", ja: "社員のインポート・エクスポート" },
+  TEAM_MANAGE: { vi: "Quản lý nhóm", ja: "チーム管理" },
+};
+
+const blankForm = { name: "", username: "", password: "", role: "EMPLOYEE" as Role, employeeId: "", permissions: [...DEFAULT_PERMISSIONS.EMPLOYEE] };
 
 export default function AccountsPage() {
   const { data: session, status } = useSession();
@@ -120,8 +140,24 @@ export default function AccountsPage() {
   }
   function startEdit(account: Account) {
     setEditing(account);
-    setForm({ name: account.name, username: account.username, password: "", role: account.role, employeeId: account.employeeId || "" });
+    setForm({ name: account.name, username: account.username, password: "", role: account.role, employeeId: account.employeeId || "", permissions: account.permissions });
     setErrorMessage(""); setShowForm(true);
+  }
+
+  function togglePermission(permission: AppPermission) {
+    setForm((current) => {
+      if (!current.permissions.includes(permission)) {
+        return { ...current, permissions: withPermissionDependencies([...current.permissions, permission]) };
+      }
+      let permissions = current.permissions.filter((item) => item !== permission);
+      if (permission === "TASK_VIEW") permissions = permissions.filter((item) => !item.startsWith("TASK_"));
+      if (permission === "EMPLOYEE_VIEW") {
+        permissions = permissions.filter((item) =>
+          !["EMPLOYEE_MANAGE", "EMPLOYEE_IMPORT_EXPORT", "TASK_CREATE", "TASK_ASSIGN", "TEAM_MANAGE"].includes(item),
+        );
+      }
+      return { ...current, permissions };
+    });
   }
 
   function localizedError(json: { error?: { code?: string } }) {
@@ -188,9 +224,28 @@ export default function AccountsPage() {
             <label className="space-y-1 text-sm"><span>{text.name}</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{text.username}</span><input required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]+" autoComplete="username" value={form.username} placeholder={text.usernameHint} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })} className="w-full rounded border px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>{editing ? text.newPassword : text.password}</span><input required={!editing} minLength={8} type="password" value={form.password} placeholder={text.passwordHint} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded border px-3 py-2" /></label>
-            <label className="space-y-1 text-sm"><span>{text.role}</span><select disabled={editing?.isPrimaryAdmin} value={form.role} onChange={(e) => { const role = e.target.value as Role; setForm({ ...form, role, employeeId: role === "ADMIN" ? "" : form.employeeId }); }} className="w-full rounded border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
+            <label className="space-y-1 text-sm"><span>{text.role}</span><select disabled={editing?.isPrimaryAdmin} value={form.role} onChange={(e) => { const role = e.target.value as Role; setForm({ ...form, role, employeeId: role === "ADMIN" ? "" : form.employeeId, permissions: [...DEFAULT_PERMISSIONS[role]] }); }} className="w-full rounded border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"><option value="EMPLOYEE">{text.roleEmployee}</option><option value="MANAGER">{text.roleManager}</option><option value="ADMIN">{text.roleAdmin}</option></select></label>
             {(form.role === "EMPLOYEE" || form.role === "MANAGER") && <label className="space-y-1 text-sm md:col-span-2"><span>{text.employee}</span><select required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.selectEmployee}</option>{employeeOptions.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} — {employee.fullName}</option>)}</select></label>}
           </div>
+          {form.role !== "ADMIN" && (
+            <fieldset className="rounded-lg border p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <legend className="font-medium text-gray-900">{text.permissions}</legend>
+                <div className="flex gap-3 text-xs">
+                  <button type="button" onClick={() => setForm({ ...form, permissions: [...APP_PERMISSIONS] })} className="text-blue-600 hover:underline">{text.allPermissions}</button>
+                  <button type="button" onClick={() => setForm({ ...form, permissions: [] })} className="text-gray-500 hover:underline">{text.clearPermissions}</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {APP_PERMISSIONS.map((permission) => (
+                  <label key={permission} className="flex cursor-pointer items-start gap-2 rounded border px-3 py-2 text-sm hover:bg-gray-50">
+                    <input type="checkbox" checked={form.permissions.includes(permission)} onChange={() => togglePermission(permission)} className="mt-0.5" />
+                    <span>{permissionLabels[permission][lang]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
           <div className="flex gap-2"><button disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">{editing ? text.update : text.create}</button><button type="button" onClick={closeForm} className="rounded border px-4 py-2 text-sm">{text.cancel}</button></div>
         </form>

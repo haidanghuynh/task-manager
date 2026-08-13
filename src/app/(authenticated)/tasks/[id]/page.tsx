@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS } from "@/types";
 import { formatDate } from "@/lib/date";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { useLang } from "@/lib/i18n";
 
@@ -135,8 +136,12 @@ export default function TaskDetailPage() {
     router.push("/waiting-tasks");
   }
 
-  const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const permissionUser = user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
+  const canEdit = hasPermission(permissionUser, "TASK_EDIT");
+  const canDelete = hasPermission(permissionUser, "TASK_DELETE");
+  const canAssign = hasPermission(permissionUser, "TASK_ASSIGN");
   const isAssignee = task && user?.employeeId === task.currentAssigneeId;
+  const canUpdateOwn = isAssignee && hasPermission(permissionUser, "TASK_UPDATE_OWN");
   const isTerminalTask = task?.status === "COMPLETED" || task?.status === "CANCELLED";
 
   if (loading) return <div className="p-6 text-center text-gray-500">Đang tải...</div>;
@@ -153,10 +158,10 @@ export default function TaskDetailPage() {
           <p className="text-sm text-gray-500 font-mono mt-0.5">{task.taskCode}</p>
         </div>
         <div className="flex gap-2">
-          {isManager && (
+          {(canEdit || canDelete) && (
             <>
-              {!editing && <button onClick={() => setEditing(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Chỉnh sửa</button>}
-              <button onClick={handleDelete} className="px-3 py-1.5 border border-red-200 text-red-600 rounded text-sm hover:bg-red-50">Xóa</button>
+              {canEdit && !editing && <button onClick={() => setEditing(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Chỉnh sửa</button>}
+              {canDelete && <button onClick={handleDelete} className="px-3 py-1.5 border border-red-200 text-red-600 rounded text-sm hover:bg-red-50">Xóa</button>}
             </>
           )}
         </div>
@@ -275,7 +280,7 @@ export default function TaskDetailPage() {
       </div>
 
       {/* Quick actions for employee */}
-      {(isAssignee || isManager) && (
+      {(canUpdateOwn || canEdit) && (
         <div className="bg-white p-6 rounded-lg border">
           <h3 className="font-semibold text-gray-900 mb-3">Cập nhật nhanh</h3>
           <div className="flex flex-wrap gap-3">
@@ -318,7 +323,7 @@ export default function TaskDetailPage() {
             <p className="text-sm mt-1">{c.content}</p>
           </div>
         ))}
-        {(isAssignee || isManager) && <div className="flex gap-2 mt-3">
+        {(canUpdateOwn || canEdit) && <div className="flex gap-2 mt-3">
           <input
             type="text"
             value={newComment}
@@ -347,7 +352,7 @@ export default function TaskDetailPage() {
       </div>
 
       {/* Reassign form for managers */}
-      {isManager && (
+      {canAssign && (
         <div className="bg-white p-6 rounded-lg border">
           <h3 className="font-semibold text-gray-900 mb-3">Chuyển task</h3>
           <form onSubmit={handleReassign} className="flex flex-wrap gap-3 items-end">

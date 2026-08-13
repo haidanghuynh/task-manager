@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { formatDate } from "@/lib/date";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 
 export default function EmployeeDetailPage() {
   const { data: session } = useSession();
@@ -19,7 +20,7 @@ export default function EmployeeDetailPage() {
   const [teams, setTeams] = useState<any[]>([]);
   const [error, setError] = useState("");
 
-  const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isManager = hasPermission(user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "EMPLOYEE_MANAGE");
   const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => { fetchEmp(); fetch("/api/teams").then(r => r.json()).then(j => j.success && setTeams(j.data)); }, [id]);

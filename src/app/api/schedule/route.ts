@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  if (!hasPermission(user, "SCHEDULE_VIEW")) return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month") || ""; // format: "2026-08"
   const product = searchParams.get("product") || "";

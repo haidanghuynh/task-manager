@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/i18n";
 
@@ -39,7 +40,7 @@ export default function NewTaskPage() {
     fetch("/api/employees").then(r => r.json()).then(j => j.success && setEmployees(j.data.employees));
   }, []);
 
-  if (user?.role !== "ADMIN" && user?.role !== "MANAGER") {
+  if (!hasPermission(user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "TASK_CREATE")) {
     return (
       <div className="p-6">
         <p className="p-4 bg-red-50 text-red-700 rounded-lg">Bạn không có quyền tạo task.</p>

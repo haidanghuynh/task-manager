@@ -4,6 +4,7 @@ import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { checkOverlap } from "@/services/task.service";
 import { updateTaskSchema } from "@/lib/validation/task";
+import { hasPermission } from "@/lib/permissions";
 
 export async function GET(
   req: NextRequest,
@@ -62,6 +63,9 @@ export async function GET(
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
     }
   }
+  if (!hasPermission(user, "TASK_VIEW")) {
+    return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+  }
 
   return NextResponse.json({ success: true, data: task });
 }
@@ -84,9 +88,16 @@ export async function PATCH(
 
   // Employee can only update own tasks' progress, status, actual dates, note
   if (user.role === "EMPLOYEE") {
-    if (task.currentAssigneeId !== user.employeeId) {
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    if (!task.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId)) {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
     }
+  }
+
+  const updatingOwnTask = task.currentAssigneeId === user.employeeId;
+  const canEditTask = hasPermission(user, "TASK_EDIT");
+  if (!canEditTask && !(updatingOwnTask && hasPermission(user, "TASK_UPDATE_OWN"))) {
+    return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
   }
 
   try {
@@ -101,7 +112,7 @@ export async function PATCH(
     const employeeFields = new Set(["progress", "status", "actualStartDate", "actualEndDate", "note"]);
     const updateData: Prisma.TaskUncheckedUpdateInput = {};
     for (const [field, value] of Object.entries(parsed.data)) {
-      if (user.role === "EMPLOYEE" && !employeeFields.has(field)) continue;
+      if (!canEditTask && !employeeFields.has(field)) continue;
       (updateData as Record<string, unknown>)[field] = value;
     }
 
@@ -195,8 +206,16 @@ export async function DELETE(
 
   const { id } = await params;
 
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+  if (!hasPermission(user, "TASK_DELETE")) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+  }
+
+  if (user.role === "EMPLOYEE") {
+    const task = await prisma.task.findUnique({ where: { id }, select: { currentAssigneeId: true } });
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    if (!task?.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId)) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+    }
   }
 
   // Soft delete

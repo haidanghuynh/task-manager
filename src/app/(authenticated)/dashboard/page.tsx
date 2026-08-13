@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { RankingChart, type RankingEntry } from "@/components/dashboard/ranking-chart";
 import { DashboardPeriodFilter, DashboardPeriodSummary, type DashboardPeriodMode } from "@/components/dashboard/period-filter";
+import { hasPermission } from "@/lib/permissions";
 
 type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
@@ -80,6 +81,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const userRole = user.role;
   const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+  const canViewTasks = hasPermission(user, "TASK_VIEW");
 
   const now = new Date();
   const period = resolveDashboardPeriod(await searchParams, now);
@@ -91,7 +93,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     plannedEndDate: { gte: period.start },
   };
 
-  if (userRole === "EMPLOYEE") {
+  if (!canViewTasks) {
+    taskFilterBase.currentAssigneeId = { in: [] };
+  } else if (userRole === "EMPLOYEE") {
     taskFilterBase.currentAssigneeId = { in: visibleEmployeeIds ?? [] };
   }
 
@@ -149,7 +153,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   let memberRanking: RankingEntry[] = [];
   let teamRanking: RankingEntry[] = [];
-  if (userRole === "ADMIN" || userRole === "MANAGER" || userRole === "EMPLOYEE") {
+  if (canViewTasks) {
     const employees = await prisma.employee.findMany({
       where: {
         isActive: true,
@@ -259,7 +263,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
 
-      {(userRole === "ADMIN" || userRole === "MANAGER" || userRole === "EMPLOYEE") && (
+      {canViewTasks && (
         <RankingChart
           members={memberRanking}
           teams={teamRanking}

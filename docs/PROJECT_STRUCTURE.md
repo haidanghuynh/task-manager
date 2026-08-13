@@ -136,6 +136,20 @@ Tài khoản `MANAGER` và `EMPLOYEE` bắt buộc liên kết với một hồ 
 hoạt động; mỗi hồ sơ nhân viên chỉ liên kết với một tài khoản. Tài khoản `ADMIN`
 không bắt buộc liên kết nhân viên.
 
+Admin có thể cấu hình quyền chi tiết theo từng tài khoản Manager/Employee tại màn
+hình **Quản lý tài khoản**. Admin luôn có toàn quyền và không hiển thị danh sách
+checkbox quyền. Trường `User.permissions` lưu mảng JSON; giá trị `null` dùng bộ
+quyền mặc định theo vai trò để tương thích các tài khoản cũ. Các quyền gồm:
+
+- xem/tạo/sửa/xóa/phân công/import-export task và cập nhật task của mình;
+- xem lịch phân công và báo cáo;
+- xem/quản lý/import-export nhân viên;
+- quản lý nhóm.
+
+Quyền được kiểm tra tại API; việc ẩn menu và nút trên UI chỉ hỗ trợ trải nghiệm.
+Sau khi Admin thay đổi quyền của tài khoản đang đăng nhập, tài khoản đó nên đăng
+xuất rồi đăng nhập lại để menu cập nhật ngay.
+
 ## Luồng nghiệp vụ đáng chú ý
 
 - Tạo task kiểm tra sản phẩm và nhân viên còn hoạt động, sau đó ghi lịch sử phân

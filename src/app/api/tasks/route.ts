@@ -4,6 +4,7 @@ import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { buildTaskCode, checkOverlap } from "@/services/task.service";
 import { createTaskSchema } from "@/lib/validation/task";
+import { hasPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -37,9 +38,14 @@ export async function GET(req: NextRequest) {
   }
 
   if (role === "EMPLOYEE") {
-    where.currentAssigneeId = employee && visibleEmployeeIds?.includes(employee)
-      ? employee
-      : { in: visibleEmployeeIds ?? [] };
+    where.currentAssigneeId = assignment === "unassigned" && hasPermission(user, "TASK_ASSIGN")
+      ? null
+      : employee && visibleEmployeeIds?.includes(employee)
+        ? employee
+        : { in: visibleEmployeeIds ?? [] };
+  }
+  if (!hasPermission(user, "TASK_VIEW")) {
+    return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
   if (employee && (role === "ADMIN" || role === "MANAGER")) {
@@ -49,8 +55,8 @@ export async function GET(req: NextRequest) {
   if (status) where.status = status;
   if (product) where.productId = product;
   if (priority) where.priority = priority;
-  if ((role === "ADMIN" || role === "MANAGER") && assignment === "unassigned") where.currentAssigneeId = null;
-  if ((role === "ADMIN" || role === "MANAGER") && assignment === "assigned") where.currentAssigneeId = { not: null };
+  if (hasPermission(user, "TASK_ASSIGN") && assignment === "unassigned") where.currentAssigneeId = null;
+  if (hasPermission(user, "TASK_ASSIGN") && assignment === "assigned" && role !== "EMPLOYEE") where.currentAssigneeId = { not: null };
 
   if (search) {
     where.OR = [
@@ -207,7 +213,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
   }
 
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+  if (!hasPermission(user, "TASK_CREATE")) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
   }
 
@@ -220,6 +226,13 @@ export async function POST(req: NextRequest) {
       );
     }
     const { taskName, description, productId, taskNumber, assigneeId, plannedStartDate: start, plannedEndDate, status, priority, note } = parsed.data;
+
+    if (user.role === "EMPLOYEE" && assigneeId) {
+      const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+      if (!visibleEmployeeIds?.includes(assigneeId)) {
+        return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+      }
+    }
 
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product?.isActive) {

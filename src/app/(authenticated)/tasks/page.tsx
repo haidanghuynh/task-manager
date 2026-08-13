@@ -8,6 +8,7 @@ import { STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS } from "
 import { formatDate } from "@/lib/date";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { useLang } from "@/lib/i18n";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 
 type ViewMode = "list" | "assignee" | "team";
 
@@ -50,7 +51,7 @@ function TasksPageContent() {
   const { data: session } = useSession();
   const { lang } = useLang();
   const searchParams = useSearchParams();
-  const user = session?.user as any;
+  const user = session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +72,10 @@ function TasksPageContent() {
     overdue: searchParams.get("overdue") === "true",
   }));
 
-  const canEdit = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const canCreate = hasPermission(user, "TASK_CREATE");
+  const canEdit = hasPermission(user, "TASK_EDIT");
+  const canDelete = hasPermission(user, "TASK_DELETE");
+  const canImportExport = hasPermission(user, "TASK_IMPORT_EXPORT");
   const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => { fetchTasks(); }, [page, filters, viewMode]);
@@ -211,20 +215,20 @@ function TasksPageContent() {
             <button onClick={() => setViewMode("assignee")} className={`px-3 py-1 rounded text-xs ${viewMode === "assignee" ? "bg-white shadow font-medium" : "text-gray-500"}`}>👤 Theo người</button>
             <button onClick={() => setViewMode("team")} className={`px-3 py-1 rounded text-xs ${viewMode === "team" ? "bg-white shadow font-medium" : "text-gray-500"}`}>🏢 Theo nhóm</button>
           </div>
-          {canEdit && (
+          {(canCreate || canImportExport || isAdmin) && (
             <div className="flex flex-wrap gap-2">
-              <Link href="/tasks/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">+ Tạo task mới</Link>
-              <label className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 cursor-pointer">
+              {canCreate && <Link href="/tasks/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">+ Tạo task mới</Link>}
+              {canImportExport && <label className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 cursor-pointer">
                 📥 {lang === "ja" ? "CSVインポート" : "Import CSV"}
                 <input type="file" accept=".csv,text/csv" className="hidden" onChange={async (event) => {
                   const file = event.target.files?.[0];
                   if (file) await importTasks(file);
                   event.target.value = "";
                 }} />
-              </label>
-              <button onClick={exportTasks} className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">
+              </label>}
+              {canImportExport && <button onClick={exportTasks} className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">
                 📤 {lang === "ja" ? "CSVエクスポート" : "Export CSV"}
-              </button>
+              </button>}
               {isAdmin && <button
                 onClick={async () => {
                   if (!confirm("⚠️ XÓA TẤT CẢ TASKS? Các task sẽ bị chuyển vào thùng rác (soft delete). KHÔNG thể hoàn tác!")) return;
@@ -318,7 +322,7 @@ function TasksPageContent() {
                           <span className="text-[11px] text-gray-400">{formatDate(task.plannedStartDate)} → {formatDate(task.plannedEndDate)}</span>
                           <Link href={`/tasks/${task.id}`} className="text-[11px] text-blue-600 hover:underline">Xem</Link>
                           {canEdit && <Link href={`/tasks/${task.id}`} className="text-[11px] text-orange-600 hover:underline">Sửa</Link>}
-                          {canEdit && <button onClick={() => handleDelete(task.id)} className="text-[11px] text-red-600 hover:underline">Xóa</button>}
+                          {canDelete && <button onClick={() => handleDelete(task.id)} className="text-[11px] text-red-600 hover:underline">Xóa</button>}
                         </div>
                       ))}
                     </div>
@@ -359,7 +363,7 @@ function TasksPageContent() {
                     <span className="text-xs text-gray-400">{formatDate(task.plannedStartDate)} → {formatDate(task.plannedEndDate)}</span>
                     <Link href={`/tasks/${task.id}`} className="text-xs text-blue-600 hover:underline">Xem</Link>
                     {canEdit && <Link href={`/tasks/${task.id}`} className="text-xs text-orange-600 hover:underline">Sửa</Link>}
-                    {canEdit && <button onClick={() => handleDelete(task.id)} className="text-xs text-red-600 hover:underline">Xóa</button>}
+                    {canDelete && <button onClick={() => handleDelete(task.id)} className="text-xs text-red-600 hover:underline">Xóa</button>}
                   </div>
                 ))}
               </div>
@@ -408,7 +412,7 @@ function TasksPageContent() {
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs ${PRIORITY_COLORS[task.priority as TaskPriority]}`}>{PRIORITY_LABELS[task.priority as TaskPriority]}</span></td>
                     <td className="px-4 py-3 space-x-1">
                       <Link href={`/tasks/${task.id}`} className="text-blue-600 text-xs hover:underline">Xem</Link>
-                      {canEdit && <button onClick={() => handleDelete(task.id)} className="text-red-600 text-xs hover:underline">Xóa</button>}
+                      {canDelete && <button onClick={() => handleDelete(task.id)} className="text-red-600 text-xs hover:underline">Xóa</button>}
                     </td>
                   </tr>
                 ))}

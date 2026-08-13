@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import { resolvePermissions, type AppPermission } from "@/lib/permissions";
 
 export const APP_ROLES = ["ADMIN", "MANAGER", "EMPLOYEE"] as const;
 
@@ -10,6 +11,7 @@ export interface AppUser {
   role: AppRole;
   employeeId: string | null;
   teamId: string | null;
+  permissions: AppPermission[];
 }
 export async function getCurrentUser(): Promise<AppUser | null> {
   const session = await auth();
@@ -24,6 +26,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     select: {
       id: true,
       role: true,
+      permissions: true,
       employeeId: true,
       isActive: true,
       employee: { select: { isActive: true, teamId: true } },
@@ -44,6 +47,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     role: user.role as AppRole,
     employeeId: user.employeeId,
     teamId: user.employee?.teamId ?? null,
+    permissions: resolvePermissions(user.role as AppRole, user.permissions),
   };
 }
 

@@ -18,27 +18,29 @@ import {
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { lang, setLang, t } = useLang();
-  const role = (session?.user as { role?: string } | undefined)?.role;
+  const user = session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
+  const role = user?.role;
 
   const navItems = [
     { href: "/dashboard", label: t.common.dashboard, icon: LayoutDashboard },
-    { href: "/schedule", label: t.common.schedule, icon: Calendar },
-    { href: "/tasks", label: t.common.tasks, icon: ListTodo },
-    ...(role === "ADMIN" || role === "MANAGER"
+    ...(hasPermission(user, "SCHEDULE_VIEW") ? [{ href: "/schedule", label: t.common.schedule, icon: Calendar }] : []),
+    ...(hasPermission(user, "TASK_VIEW") ? [{ href: "/tasks", label: t.common.tasks, icon: ListTodo }] : []),
+    ...(hasPermission(user, "TASK_ASSIGN")
       ? [{ href: "/waiting-tasks", label: t.common.waitingTasks, icon: Inbox }]
       : []),
-    { href: "/employees", label: t.common.employees, icon: Users },
-    { href: "/teams", label: t.common.teams, icon: UsersRound },
-    { href: "/reports/annual", label: t.common.reports, icon: FileBarChart },
+    ...(hasPermission(user, "EMPLOYEE_VIEW") ? [{ href: "/employees", label: t.common.employees, icon: Users }] : []),
+    ...(hasPermission(user, "TEAM_MANAGE") ? [{ href: "/teams", label: t.common.teams, icon: UsersRound }] : []),
+    ...(hasPermission(user, "REPORT_VIEW") ? [{ href: "/reports/annual", label: t.common.reports, icon: FileBarChart }] : []),
     ...(role === "ADMIN"
       ? [{ href: "/accounts", label: t.common.accounts, icon: UserCog }]
       : []),
-    { href: "/settings", label: t.common.settings, icon: Settings },
+    ...(role === "ADMIN" ? [{ href: "/settings", label: t.common.settings, icon: Settings }] : []),
   ];
 
   const isActive = (href: string) => {

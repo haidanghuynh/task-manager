@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
 
 const statuses = new Set(["PLANNED", "IN_PROGRESS", "WAITING", "COMPLETED", "CANCELLED"]);
 const priorities = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
@@ -15,7 +16,7 @@ function parseDate(value: string): Date | null {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+  if (!hasPermission(user, "TASK_IMPORT_EXPORT")) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
@@ -30,7 +31,10 @@ export async function POST(req: NextRequest) {
 
   const [products, employees] = await Promise.all([
     prisma.product.findMany({ where: { isActive: true }, select: { id: true, code: true } }),
-    prisma.employee.findMany({ where: { isActive: true }, select: { id: true, employeeCode: true } }),
+    prisma.employee.findMany({
+      where: { isActive: true, ...(user.role === "EMPLOYEE" ? { teamId: user.teamId ?? "__no_team__" } : {}) },
+      select: { id: true, employeeCode: true },
+    }),
   ]);
   const productByCode = new Map(products.map((product) => [product.code.toLowerCase(), product]));
   const employeeGroups = new Map<string, Array<{ id: string; employeeCode: string }>>();

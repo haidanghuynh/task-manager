@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { deleteEmployeesPermanently } from "@/services/employee.service";
+import { hasPermission } from "@/lib/permissions";
 
 export async function DELETE() {
   const user = await getCurrentUser();
@@ -21,7 +22,7 @@ export async function DELETE() {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+  if (!hasPermission(user, "EMPLOYEE_IMPORT_EXPORT")) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
@@ -53,7 +54,10 @@ export async function POST(req: NextRequest) {
         ? true
         : ["true", "1", "active", "đang hoạt động", "有効"].includes(String(activeValue).trim().toLowerCase());
       let teamId: string | null | undefined;
-      if (teamName !== undefined) {
+      if (user.role === "EMPLOYEE") {
+        if (!user.teamId) throw new Error("Employee account has no team");
+        teamId = user.teamId;
+      } else if (teamName !== undefined) {
         if (normalizedTeamName) {
           const team = await prisma.team.findFirst({ where: { name: normalizedTeamName } })
             ?? await prisma.team.create({ data: { name: normalizedTeamName } });
@@ -70,7 +74,12 @@ export async function POST(req: NextRequest) {
         isActive,
         ...(teamId !== undefined ? { teamId } : {}),
       };
-      const existing = await prisma.employee.findFirst({ where: { employeeCode: normalizedCode } });
+      const existing = await prisma.employee.findFirst({
+        where: {
+          employeeCode: normalizedCode,
+          ...(user.role === "EMPLOYEE" ? { teamId: user.teamId } : {}),
+        },
+      });
       if (existing) {
         await prisma.$transaction(async (tx) => {
           await tx.employee.update({ where: { id: existing.id }, data });

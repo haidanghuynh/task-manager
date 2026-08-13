@@ -1,89 +1,84 @@
-type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
+export const APP_PERMISSIONS = [
+  "TASK_VIEW",
+  "TASK_CREATE",
+  "TASK_EDIT",
+  "TASK_DELETE",
+  "TASK_ASSIGN",
+  "TASK_IMPORT_EXPORT",
+  "TASK_UPDATE_OWN",
+  "SCHEDULE_VIEW",
+  "REPORT_VIEW",
+  "EMPLOYEE_VIEW",
+  "EMPLOYEE_MANAGE",
+  "EMPLOYEE_IMPORT_EXPORT",
+  "TEAM_MANAGE",
+] as const;
 
-interface SessionUser {
-  id: string;
-  role: Role;
-  employeeId?: string | null;
+export type AppPermission = (typeof APP_PERMISSIONS)[number];
+export type PermissionRole = "ADMIN" | "MANAGER" | "EMPLOYEE";
+
+const employeeDefaults: AppPermission[] = [
+  "TASK_VIEW",
+  "TASK_UPDATE_OWN",
+  "SCHEDULE_VIEW",
+  "REPORT_VIEW",
+  "EMPLOYEE_VIEW",
+];
+
+export const DEFAULT_PERMISSIONS: Record<PermissionRole, AppPermission[]> = {
+  ADMIN: [...APP_PERMISSIONS],
+  MANAGER: [...APP_PERMISSIONS],
+  EMPLOYEE: employeeDefaults,
+};
+
+export function parsePermissions(value: string | null | undefined): AppPermission[] | null {
+  if (value == null) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((item): item is AppPermission =>
+      typeof item === "string" && APP_PERMISSIONS.includes(item as AppPermission),
+    ))];
+  } catch {
+    return [];
+  }
 }
 
-export function isAdmin(user: SessionUser | null | undefined): boolean {
-  return user?.role === "ADMIN";
+export function resolvePermissions(role: PermissionRole, value?: string | null): AppPermission[] {
+  if (role === "ADMIN") return [...APP_PERMISSIONS];
+  return withPermissionDependencies(parsePermissions(value) ?? [...DEFAULT_PERMISSIONS[role]]);
 }
 
-export function isManager(user: SessionUser | null | undefined): boolean {
-  return user?.role === "MANAGER" || user?.role === "ADMIN";
+export function withPermissionDependencies(values: AppPermission[]): AppPermission[] {
+  const permissions = new Set(values);
+  const taskActions: AppPermission[] = ["TASK_CREATE", "TASK_EDIT", "TASK_DELETE", "TASK_ASSIGN", "TASK_IMPORT_EXPORT", "TASK_UPDATE_OWN"];
+  if (taskActions.some((permission) => permissions.has(permission))) permissions.add("TASK_VIEW");
+  if (
+    permissions.has("EMPLOYEE_MANAGE") ||
+    permissions.has("EMPLOYEE_IMPORT_EXPORT") ||
+    permissions.has("TASK_CREATE") ||
+    permissions.has("TASK_ASSIGN") ||
+    permissions.has("TEAM_MANAGE")
+  ) permissions.add("EMPLOYEE_VIEW");
+  return APP_PERMISSIONS.filter((permission) => permissions.has(permission));
 }
 
-export function isEmployee(user: SessionUser | null | undefined): boolean {
-  return user?.role === "EMPLOYEE";
+export function normalizePermissions(role: PermissionRole, value: unknown): string | null {
+  if (role === "ADMIN") return null;
+  if (!Array.isArray(value)) return null;
+  const permissions = [...new Set(value.filter((item): item is AppPermission =>
+    typeof item === "string" && APP_PERMISSIONS.includes(item as AppPermission),
+  ))];
+  return JSON.stringify(withPermissionDependencies(permissions));
 }
 
-export function canManageUsers(user: SessionUser | null | undefined): boolean {
-  return isAdmin(user);
+export interface PermissionUser {
+  role: PermissionRole;
+  permissions?: AppPermission[] | null;
 }
 
-export function canManageEmployees(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canManageProducts(user: SessionUser | null | undefined): boolean {
-  return isAdmin(user);
-}
-
-export function canCreateTask(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canUpdateTask(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canDeleteTask(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canRestoreTask(user: SessionUser | null | undefined): boolean {
-  return isAdmin(user);
-}
-
-export function canReassignTask(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canUpdateTaskProgress(
-  user: SessionUser | null | undefined,
-  taskAssigneeId: string | null
-): boolean {
+export function hasPermission(user: PermissionUser | null | undefined, permission: AppPermission): boolean {
   if (!user) return false;
-  if (isManager(user)) return true;
-  if (isEmployee(user) && user.employeeId === taskAssigneeId) return true;
-  return false;
-}
-
-export function canViewAllEmployees(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canViewAllTasks(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canViewReports(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canExportData(user: SessionUser | null | undefined): boolean {
-  return isManager(user);
-}
-
-export function canViewAuditHistory(user: SessionUser | null | undefined): boolean {
-  return isAdmin(user);
-}
-
-export function requireRole(
-  user: SessionUser | null | undefined,
-  allowedRoles: Role[]
-): boolean {
-  if (!user) return false;
-  return allowedRoles.includes(user.role);
+  if (user.role === "ADMIN") return true;
+  return (user.permissions ?? DEFAULT_PERMISSIONS[user.role]).includes(permission);
 }

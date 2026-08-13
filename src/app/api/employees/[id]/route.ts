@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { deleteEmployeesPermanently } from "@/services/employee.service";
+import { hasPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  if (!hasPermission(user, "EMPLOYEE_VIEW")) return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   const { id } = await params;
 
   const emp = await prisma.employee.findUnique({
@@ -26,14 +28,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
   const { id } = await params;
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+  if (!hasPermission(user, "EMPLOYEE_MANAGE")) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
+  if (user.role === "EMPLOYEE") {
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    if (!visibleEmployeeIds?.includes(id)) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+    }
   }
 
   const body = await req.json();
   const allowed = ["employeeCode", "fullName", "email", "department", "position", "teamId", "isActive"];
   const data: any = {};
   for (const f of allowed) if (body[f] !== undefined) data[f] = body[f];
+  if (user.role === "EMPLOYEE") data.teamId = user.teamId;
 
   if (data.employeeCode !== undefined) {
     data.employeeCode = String(data.employeeCode).trim();

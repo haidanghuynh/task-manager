@@ -2,6 +2,7 @@ import { hash } from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { APP_ROLES, getCurrentUser, type AppRole } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { normalizePermissions } from "@/lib/permissions";
 
 function error(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -26,6 +27,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     ? null
     : typeof body?.employeeId === "string" && body.employeeId ? body.employeeId : target.employeeId;
   const password = typeof body?.password === "string" ? body.password : "";
+  const permissions = body?.permissions === undefined
+    ? target.permissions
+    : normalizePermissions(role, body.permissions);
 
   if (!name || (usernameWasProvided && !/^[a-z0-9._-]{3,50}$/.test(username))) {
     return error(400, "VALIDATION_ERROR", "Name and a valid username are required");
@@ -50,11 +54,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updated = await prisma.user.update({
       where: { id },
       data: {
-        name, username, role, isActive,
+        name, username, role, isActive, permissions,
         employeeId: role === "EMPLOYEE" || role === "MANAGER" ? employeeId : employeeId || null,
         ...(password ? { passwordHash: await hash(password, 12) } : {}),
       },
-      select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true, isPrimaryAdmin: true },
+      select: { id: true, name: true, username: true, role: true, employeeId: true, permissions: true, isActive: true, isPrimaryAdmin: true },
     });
     return NextResponse.json({ success: true, data: updated });
   } catch (caught: unknown) {

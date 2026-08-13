@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
+import { resolvePermissions } from "@/lib/permissions";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -42,6 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.username,
           role: user.role,
           employeeId: user.employeeId,
+          permissions: resolvePermissions(user.role as "ADMIN" | "MANAGER" | "EMPLOYEE", user.permissions),
         };
       },
     }),

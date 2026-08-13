@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 import Link from "next/link";
 
 function parseCsvLine(line: string): string[] {
@@ -51,7 +52,9 @@ export default function EmployeesPage() {
       });
   }, [search]);
 
-  const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const permissionUser = user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
+  const canManage = hasPermission(permissionUser, "EMPLOYEE_MANAGE");
+  const canImportExport = hasPermission(permissionUser, "EMPLOYEE_IMPORT_EXPORT");
   const isAdmin = user?.role === "ADMIN";
 
   async function exportEmployees() {
@@ -94,12 +97,12 @@ export default function EmployeesPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Nhân viên</h2>
-        {isManager && (
+        {(canManage || canImportExport || isAdmin) && (
           <div className="flex gap-2">
-            <Link href="/employees/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+            {canManage && <Link href="/employees/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
               + Thêm nhân viên
-            </Link>
-            <label className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 cursor-pointer">
+            </Link>}
+            {canImportExport && <label className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 cursor-pointer">
               📥 Import CSV
               <input type="file" accept=".csv" className="hidden" onChange={async (e) => {
                 const file = e.target.files?.[0];
@@ -121,10 +124,10 @@ export default function EmployeesPage() {
                   alert("❌ Import thất bại: " + (json.error?.message || "Lỗi"));
                 }
               }} />
-            </label>
-            <button onClick={exportEmployees} className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">
+            </label>}
+            {canImportExport && <button onClick={exportEmployees} className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">
               📤 Export CSV
-            </button>
+            </button>}
             {isAdmin && <button
               onClick={async () => {
                 if (!confirm("Xóa vĩnh viễn tất cả nhân viên và tài khoản liên kết? Thao tác này không thể hoàn tác.")) return;
@@ -168,7 +171,7 @@ export default function EmployeesPage() {
               </div>
               <div className="mt-3 flex gap-2">
                 <Link href={`/employees/${emp.id}`} className="text-xs text-blue-600 hover:underline">Xem</Link>
-                {isManager && <Link href={`/employees/${emp.id}`} className="text-xs text-orange-600 hover:underline">Sửa</Link>}
+                {canManage && <Link href={`/employees/${emp.id}`} className="text-xs text-orange-600 hover:underline">Sửa</Link>}
                 {isAdmin && (
                   <button onClick={async (e) => {
                     e.preventDefault();

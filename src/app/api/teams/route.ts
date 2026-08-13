@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -16,7 +17,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!hasPermission(user, "TEAM_MANAGE")) return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   const body = await req.json();
   const { name, description, icon, leadId } = body;
   if (!name) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!hasPermission(user, "TEAM_MANAGE")) return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   const body = await req.json();
   const { id, name, description, icon, leadId } = body;
   if (!id) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!hasPermission(user, "TEAM_MANAGE")) return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 import { useLang } from "@/lib/i18n";
 
 const DAY_WIDTH = 38;
@@ -72,7 +73,7 @@ export default function WaitingTasksPage() {
   const { data: session } = useSession();
   const { lang } = useLang();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  const allowed = role === "ADMIN" || role === "MANAGER";
+  const allowed = hasPermission(session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "TASK_ASSIGN");
   const [tasks, setTasks] = useState<WaitingTask[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);

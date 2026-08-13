@@ -2,6 +2,7 @@ import { hash } from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { APP_ROLES, getCurrentUser, type AppRole } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { normalizePermissions, resolvePermissions } from "@/lib/permissions";
 
 function error(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -16,7 +17,7 @@ export async function GET() {
     prisma.user.findMany({
       where: { deletedAt: null },
       select: {
-        id: true, name: true, username: true, role: true, employeeId: true,
+        id: true, name: true, username: true, role: true, employeeId: true, permissions: true,
         isActive: true, isPrimaryAdmin: true, createdAt: true,
         employee: { select: { employeeCode: true, fullName: true, isActive: true } },
       },
@@ -29,7 +30,16 @@ export async function GET() {
     }),
   ]);
 
-  return NextResponse.json({ success: true, data: { users, employees } });
+  return NextResponse.json({
+    success: true,
+    data: {
+      users: users.map((user) => ({
+        ...user,
+        permissions: resolvePermissions(user.role as AppRole, user.permissions),
+      })),
+      employees,
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -43,6 +53,7 @@ export async function POST(req: NextRequest) {
   const password = typeof body?.password === "string" ? body.password : "";
   const role = body?.role as AppRole;
   const employeeId = typeof body?.employeeId === "string" && body.employeeId ? body.employeeId : null;
+  const permissions = normalizePermissions(role, body?.permissions);
 
   if (!name || !/^[a-z0-9._-]{3,50}$/.test(username)) {
     return error(400, "VALIDATION_ERROR", "Name and a valid username are required");
@@ -59,8 +70,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const user = await prisma.user.create({
-      data: { name, username, passwordHash: await hash(password, 12), role, employeeId, isActive: true },
-      select: { id: true, name: true, username: true, role: true, employeeId: true, isActive: true, isPrimaryAdmin: true },
+      data: { name, username, passwordHash: await hash(password, 12), role, employeeId, permissions, isActive: true },
+      select: { id: true, name: true, username: true, role: true, employeeId: true, permissions: true, isActive: true, isPrimaryAdmin: true },
     });
     return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (caught: unknown) {

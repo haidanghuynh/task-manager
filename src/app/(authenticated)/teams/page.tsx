@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 
 const ZODIAC_ICONS = ["🌸","🐀","🐂","🐅","🐇","🐉","🐍","🐎","🐏","🐒","🐓","🐕","🐖"];
 
@@ -18,7 +19,7 @@ export default function TeamsPage() {
   const [addMemberTeam, setAddMemberTeam] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isManager = hasPermission(user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "TEAM_MANAGE");
 
   useEffect(() => { fetchTeams(); fetchEmployees(); }, []);
 

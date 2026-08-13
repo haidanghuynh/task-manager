@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
 
 export async function POST(
   req: NextRequest,
@@ -21,6 +22,10 @@ export async function POST(
   if (!task) return NextResponse.json({ success: false, error: { code: "NOT_FOUND" } }, { status: 404 });
 
   if (user.role === "EMPLOYEE" && task.currentAssigneeId !== user.employeeId) {
+    return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
+  const commentingOwnTask = task.currentAssigneeId === user.employeeId;
+  if (!hasPermission(user, "TASK_EDIT") && !(commentingOwnTask && hasPermission(user, "TASK_UPDATE_OWN"))) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 

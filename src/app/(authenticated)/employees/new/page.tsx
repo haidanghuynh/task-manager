@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { hasPermission, type AppPermission } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 
 export default function NewEmployeePage() {
@@ -15,7 +16,7 @@ export default function NewEmployeePage() {
     employeeCode: "", fullName: "", email: "", department: "", position: "", teamId: ""
   });
 
-  const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isManager = hasPermission(user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "EMPLOYEE_MANAGE");
 
   useEffect(() => {
     fetch("/api/teams").then(r => r.json()).then(j => j.success && setTeams(j.data));

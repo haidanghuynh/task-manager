@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { reassignTaskSchema } from "@/lib/validation/task";
 import { reassignTask } from "@/services/task.service";
+import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   req: NextRequest,
@@ -11,7 +13,7 @@ export async function POST(
   if (!user) {
     return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+  if (!hasPermission(user, "TASK_ASSIGN")) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
@@ -23,8 +25,18 @@ export async function POST(
     );
   }
 
+  const { id } = await params;
+  if (user.role === "EMPLOYEE") {
+    const [task, visibleEmployeeIds] = await Promise.all([
+      prisma.task.findUnique({ where: { id }, select: { currentAssigneeId: true } }),
+      getVisibleEmployeeIds(user),
+    ]);
+    if (!task?.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId) || !visibleEmployeeIds.includes(parsed.data.employeeId)) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+    }
+  }
+
   try {
-    const { id } = await params;
     const result = await reassignTask(
       id,
       parsed.data.employeeId,

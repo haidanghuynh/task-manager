@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { checkOverlap } from "@/services/task.service";
+import { hasPermission } from "@/lib/permissions";
 
 function error(status: number, code: string, message?: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -10,7 +11,7 @@ function error(status: number, code: string, message?: string) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return error(401, "UNAUTHORIZED");
-  if (user.role === "EMPLOYEE") return error(403, "FORBIDDEN");
+  if (!hasPermission(user, "TASK_ASSIGN")) return error(403, "FORBIDDEN");
 
   const body = await req.json().catch(() => null);
   const rawTaskIds: unknown[] = Array.isArray(body?.taskIds) ? body.taskIds : [];
@@ -22,6 +23,10 @@ export async function POST(req: NextRequest) {
 
   if (taskIds.length === 0 || taskIds.length > 200) return error(400, "INVALID_TASKS", "Select 1-200 tasks");
   if (!employeeId) return error(400, "INVALID_EMPLOYEE", "Employee is required");
+  if (user.role === "EMPLOYEE") {
+    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    if (!visibleEmployeeIds?.includes(employeeId)) return error(403, "FORBIDDEN");
+  }
 
   const [employee, tasks] = await Promise.all([
     prisma.employee.findUnique({ where: { id: employeeId }, select: { id: true, isActive: true } }),
