@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
 import { useLang } from "@/lib/i18n";
+import { DAILY_WORK_CATEGORIES, DAILY_WORK_COLOR, dailyWorkLabel } from "@/lib/task-work-type";
 
 const DAY_WIDTH = 38;
 const TASK_COLUMN_WIDTH = 300;
@@ -30,8 +31,10 @@ interface WaitingTask {
   taskCode: string;
   taskName: string;
   description: string | null;
-  productId: string;
-  product: Product;
+  workType: "PRODUCT" | "DAILY";
+  dailyCategory: string | null;
+  productId: string | null;
+  product: Product | null;
   plannedStartDate: string;
   plannedEndDate: string;
   priority: string;
@@ -82,6 +85,7 @@ export default function WaitingTasksPage() {
   const [reason, setReason] = useState("");
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState("");
+  const [workTypeFilter, setWorkTypeFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [collapsedProducts, setCollapsedProducts] = useState<Set<string>>(() => new Set());
@@ -89,6 +93,8 @@ export default function WaitingTasksPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
+    workType: "PRODUCT",
+    dailyCategory: "",
     productId: "",
     taskNumber: "",
     taskName: "",
@@ -200,8 +206,9 @@ export default function WaitingTasksPage() {
     const keyword = search.trim().toLowerCase();
     return (!keyword || task.taskCode.toLowerCase().includes(keyword) || task.taskName.toLowerCase().includes(keyword))
       && (!productFilter || task.productId === productFilter)
+      && (!workTypeFilter || task.workType === workTypeFilter)
       && (!priorityFilter || task.priority === priorityFilter);
-  }), [tasks, search, productFilter, priorityFilter]);
+  }), [tasks, search, productFilter, workTypeFilter, priorityFilter]);
 
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -211,8 +218,11 @@ export default function WaitingTasksPage() {
     const end = new Date(task.plannedEndDate);
     return start <= monthEnd && end >= monthStart;
   });
-  const productGroups = products
-    .map((product) => ({ product, tasks: timelineTasks.filter((task) => task.productId === product.id) }))
+  const productGroups = [
+    ...products,
+    { id: "__daily__", code: "DAILY", name: lang === "ja" ? "日常業務" : "Công việc hằng ngày", color: DAILY_WORK_COLOR, isActive: true },
+  ]
+    .map((product) => ({ product, tasks: timelineTasks.filter((task) => product.id === "__daily__" ? task.workType === "DAILY" : task.productId === product.id) }))
     .filter((group) => group.tasks.length > 0);
   const allVisibleSelected = filteredTasks.length > 0 && filteredTasks.every((task) => selectedIds.has(task.id));
   const selectedCount = selectedIds.size;
@@ -250,7 +260,7 @@ export default function WaitingTasksPage() {
       setMessage(json.error?.message || (lang === "ja" ? "タスクを作成できません。" : "Không thể tạo task chờ."));
       return;
     }
-    setForm({ productId: "", taskNumber: "", taskName: "", description: "", plannedStartDate: "", plannedEndDate: "", priority: "MEDIUM", note: "" });
+    setForm({ workType: "PRODUCT", dailyCategory: "", productId: "", taskNumber: "", taskName: "", description: "", plannedStartDate: "", plannedEndDate: "", priority: "MEDIUM", note: "" });
     setShowCreate(false);
     setMessage(lang === "ja" ? "未割り当てタスクを作成しました。" : "Đã tạo task chờ.");
     await loadTasks();
@@ -303,8 +313,8 @@ export default function WaitingTasksPage() {
   }
 
   function exportCsv() {
-    const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note"];
-    const rows = filteredTasks.map((task) => [task.taskCode, task.taskName, task.description, task.product.code, "", toDateInput(new Date(task.plannedStartDate)), toDateInput(new Date(task.plannedEndDate)), "", "", task.status, 0, task.priority, task.note]);
+    const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note", "workType", "dailyCategory"];
+    const rows = filteredTasks.map((task) => [task.taskCode, task.taskName, task.description, task.product?.code || "", "", toDateInput(new Date(task.plannedStartDate)), toDateInput(new Date(task.plannedEndDate)), "", "", task.status, 0, task.priority, task.note, task.workType, task.dailyCategory]);
     const blob = new Blob(["\uFEFF", [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -326,7 +336,7 @@ export default function WaitingTasksPage() {
         href={`/tasks/${task.id}`}
         title={`${task.taskCode}: ${task.taskName}`}
         className="absolute top-2 flex h-7 items-center overflow-hidden rounded px-2 text-xs font-medium text-white shadow-sm hover:brightness-110"
-        style={{ left: (startDay - 1) * DAY_WIDTH + 2, width: duration * DAY_WIDTH - 4, backgroundColor: task.product.color }}
+        style={{ left: (startDay - 1) * DAY_WIDTH + 2, width: duration * DAY_WIDTH - 4, backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280" }}
       >
         <span className="truncate">{task.taskCode}: {task.taskName}</span>
       </Link>
@@ -350,7 +360,12 @@ export default function WaitingTasksPage() {
 
       {showCreate && (
         <form onSubmit={createWaitingTask} className="grid gap-4 rounded-lg border bg-white p-5 md:grid-cols-3">
-          <label className="space-y-1 text-sm"><span>{text.product} *</span><select required value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.product}...</option>{products.filter((product) => product.isActive).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+          <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務タイプ" : "Loại công việc"} *</span><select value={form.workType} onChange={(event) => setForm({ ...form, workType: event.target.value, productId: "", dailyCategory: "" })} className="w-full rounded border px-3 py-2"><option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option><option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option></select></label>
+          {form.workType === "PRODUCT" ? (
+            <label className="space-y-1 text-sm"><span>{text.product} *</span><select required value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.product}...</option>{products.filter((product) => product.isActive).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+          ) : (
+            <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"} *</span><select required value={form.dailyCategory} onChange={(event) => setForm({ ...form, dailyCategory: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>{DAILY_WORK_CATEGORIES.map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}</select></label>
+          )}
           <label className="space-y-1 text-sm"><span>{text.suffix}</span><input value={form.taskNumber} onChange={(event) => setForm({ ...form, taskNumber: event.target.value })} pattern="[A-Za-z0-9]+([._-][A-Za-z0-9]+)*" maxLength={40} className="w-full rounded border px-3 py-2" placeholder="2.22.4" /></label>
           <label className="space-y-1 text-sm"><span>{text.taskName} *</span><input required maxLength={200} value={form.taskName} onChange={(event) => setForm({ ...form, taskName: event.target.value })} className="w-full rounded border px-3 py-2" /></label>
           <label className="space-y-1 text-sm"><span>{text.start} *</span><input required type="date" value={form.plannedStartDate} onChange={(event) => setForm({ ...form, plannedStartDate: event.target.value })} className="w-full rounded border px-3 py-2" /></label>
@@ -365,8 +380,13 @@ export default function WaitingTasksPage() {
       {message && <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">{message}</p>}
 
       <section className="overflow-hidden rounded-lg border bg-white">
-        <div className="flex flex-wrap gap-2 border-b p-4"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={text.search} className="min-w-52 flex-1 rounded border px-3 py-2 text-sm" /><select value={productFilter} onChange={(event) => setProductFilter(event.target.value)} className="rounded border px-3 py-2 text-sm"><option value="">{text.allProducts}</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select><select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="rounded border px-3 py-2 text-sm"><option value="">{text.allPriorities}</option><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option></select></div>
-        {filteredTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.empty}</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} /></th><th className="px-4 py-3">{text.task}</th><th className="px-4 py-3">{text.product}</th><th className="px-4 py-3">{text.start}</th><th className="px-4 py-3">{text.end}</th><th className="px-4 py-3">{text.priority}</th><th className="px-4 py-3">{text.actions}</th></tr></thead><tbody className="divide-y">{filteredTasks.map((task) => <tr key={task.id} className="hover:bg-gray-50"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => toggleTask(task.id)} /></td><td className="px-4 py-3"><Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="mt-0.5 text-sm text-gray-900">{task.taskName}</p></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.product.color }} />{task.product.name}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedStartDate))}</td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedEndDate))}</td><td className="px-4 py-3 text-xs">{task.priority}</td><td className="whitespace-nowrap px-4 py-3"><Link href={`/tasks/${task.id}`} className="mr-3 text-blue-600 hover:underline">{text.edit}</Link><button type="button" onClick={() => deleteTask(task.id)} className="text-red-600 hover:underline">{text.delete}</button></td></tr>)}</tbody></table></div>}
+        <div className="flex flex-wrap gap-2 border-b p-4">
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={text.search} className="min-w-52 flex-1 rounded border px-3 py-2 text-sm" />
+          <select value={workTypeFilter} onChange={(event) => { setWorkTypeFilter(event.target.value); if (event.target.value === "DAILY") setProductFilter(""); }} className="rounded border px-3 py-2 text-sm"><option value="">{lang === "ja" ? "すべての業務" : "Tất cả công việc"}</option><option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option><option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option></select>
+          <select value={productFilter} disabled={workTypeFilter === "DAILY"} onChange={(event) => { setProductFilter(event.target.value); if (event.target.value) setWorkTypeFilter("PRODUCT"); }} className="rounded border px-3 py-2 text-sm disabled:opacity-50"><option value="">{text.allProducts}</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>
+          <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="rounded border px-3 py-2 text-sm"><option value="">{text.allPriorities}</option><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option></select>
+        </div>
+        {filteredTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.empty}</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} /></th><th className="px-4 py-3">{text.task}</th><th className="px-4 py-3">{lang === "ja" ? "業務区分" : "Loại công việc"}</th><th className="px-4 py-3">{text.start}</th><th className="px-4 py-3">{text.end}</th><th className="px-4 py-3">{text.priority}</th><th className="px-4 py-3">{text.actions}</th></tr></thead><tbody className="divide-y">{filteredTasks.map((task) => <tr key={task.id} className="hover:bg-gray-50"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => toggleTask(task.id)} /></td><td className="px-4 py-3"><Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="mt-0.5 text-sm text-gray-900">{task.taskName}</p></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280" }} />{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedStartDate))}</td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedEndDate))}</td><td className="px-4 py-3 text-xs">{task.priority}</td><td className="whitespace-nowrap px-4 py-3"><Link href={`/tasks/${task.id}`} className="mr-3 text-blue-600 hover:underline">{text.edit}</Link><button type="button" onClick={() => deleteTask(task.id)} className="text-red-600 hover:underline">{text.delete}</button></td></tr>)}</tbody></table></div>}
         <div className="grid rounded-b-lg border-t bg-gray-50 p-4 gap-3 md:grid-cols-[auto_1fr_1fr_auto]"><span className="self-center text-sm font-medium">{text.selected}: {selectedCount}</span><select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="rounded border bg-white px-3 py-2 text-sm"><option value="">{text.employee}...</option>{employees.filter((employee) => employee.isActive).map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} ({employee.employeeCode}){employee.team?.name ? ` — ${employee.team.name}` : ""}</option>)}</select><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder={text.reason} className="rounded border bg-white px-3 py-2 text-sm" /><button type="button" disabled={busy || !employeeId || selectedCount === 0} onClick={assignTasks} className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-40">{text.assign} ({selectedCount})</button></div>
       </section>
 

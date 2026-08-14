@@ -21,9 +21,10 @@ type DashboardPeriodFilterProps = {
   year: string;
   from: string;
   to: string;
+  includeDaily: boolean;
 };
 
-export function DashboardPeriodFilter({ mode: initialMode, month: initialMonth, year: initialYear, from: initialFrom, to: initialTo }: DashboardPeriodFilterProps) {
+export function DashboardPeriodFilter({ mode: initialMode, month: initialMonth, year: initialYear, from: initialFrom, to: initialTo, includeDaily: initialIncludeDaily }: DashboardPeriodFilterProps) {
   const router = useRouter();
   const { lang } = useLang();
   const [mode, setMode] = useState<DashboardPeriodMode>(initialMode);
@@ -31,6 +32,7 @@ export function DashboardPeriodFilter({ mode: initialMode, month: initialMonth, 
   const [year, setYear] = useState(initialYear);
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
+  const [includeDaily, setIncludeDaily] = useState(initialIncludeDaily);
 
   function applyFilter(event: React.FormEvent) {
     event.preventDefault();
@@ -41,15 +43,16 @@ export function DashboardPeriodFilter({ mode: initialMode, month: initialMonth, 
       params.set("from", from);
       params.set("to", to);
     }
+    if (includeDaily) params.set("includeDaily", "true");
     router.push(`/dashboard?${params.toString()}`);
   }
 
   const text = lang === "ja" ? {
     period: "集計期間", month: "月別", range: "期間指定", year: "年別",
-    from: "開始日", to: "終了日", apply: "適用",
+    from: "開始日", to: "終了日", apply: "適用", includeDaily: "ランキングに日常業務を含める",
   } : {
     period: "Kỳ thống kê", month: "Theo tháng", range: "Khoảng thời gian", year: "Theo năm",
-    from: "Từ ngày", to: "Đến ngày", apply: "Áp dụng",
+    from: "Từ ngày", to: "Đến ngày", apply: "Áp dụng", includeDaily: "Tính công việc hằng ngày vào xếp hạng",
   };
 
   return (
@@ -89,6 +92,11 @@ export function DashboardPeriodFilter({ mode: initialMode, month: initialMonth, 
           </label>
         </>
       )}
+
+      <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-600">
+        <input type="checkbox" checked={includeDaily} onChange={(event) => setIncludeDaily(event.target.checked)} />
+        {text.includeDaily}
+      </label>
 
       <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
         {text.apply}

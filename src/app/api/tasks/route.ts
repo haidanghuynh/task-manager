@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
   const product = searchParams.get("product") || "";
+  const workType = searchParams.get("workType") || "";
   const employee = searchParams.get("employee") || "";
   const priority = searchParams.get("priority") || "";
   const startDate = searchParams.get("startDate") || "";
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
 
   if (status) where.status = status;
   if (product) where.productId = product;
+  if (workType === "PRODUCT" || workType === "DAILY") where.workType = workType;
   if (priority) where.priority = priority;
   if (hasPermission(user, "TASK_ASSIGN") && assignment === "unassigned") where.currentAssigneeId = null;
   if (hasPermission(user, "TASK_ASSIGN") && assignment === "assigned" && role !== "EMPLOYEE") where.currentAssigneeId = { not: null };
@@ -225,7 +227,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const { taskName, description, productId, taskNumber, assigneeId, plannedStartDate: start, plannedEndDate, status, priority, note } = parsed.data;
+    const { taskName, description, workType, dailyCategory, productId, taskNumber, assigneeId, plannedStartDate: start, plannedEndDate, status, priority, note } = parsed.data;
 
     if (user.role === "EMPLOYEE" && assigneeId) {
       const visibleEmployeeIds = await getVisibleEmployeeIds(user);
@@ -234,8 +236,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product?.isActive) {
+    const product = workType === "PRODUCT"
+      ? await prisma.product.findUnique({ where: { id: productId } })
+      : null;
+    if (workType === "PRODUCT" && !product?.isActive) {
       return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Product not found or inactive" } }, { status: 400 });
     }
 
@@ -247,7 +251,7 @@ export async function POST(req: NextRequest) {
     }
     const end = plannedEndDate ?? start;
 
-    const taskCode = buildTaskCode(product.code, taskNumber);
+    const taskCode = buildTaskCode(product?.code || "DAILY", taskNumber);
     const overlaps = assigneeId ? await checkOverlap(assigneeId, start, end) : [];
 
     const task = await prisma.$transaction(async (tx) => {
@@ -256,7 +260,9 @@ export async function POST(req: NextRequest) {
           taskCode,
           taskName,
           description: description || null,
-          productId,
+          workType,
+          dailyCategory: workType === "DAILY" ? dailyCategory : null,
+          productId: workType === "PRODUCT" ? productId : null,
           currentAssigneeId: assigneeId || null,
           createdById: user.id,
           plannedStartDate: start,

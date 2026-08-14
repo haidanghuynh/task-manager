@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/date";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { useLang } from "@/lib/i18n";
+import { DAILY_WORK_CATEGORIES, DAILY_WORK_COLOR, dailyWorkLabel } from "@/lib/task-work-type";
 
 export default function TaskDetailPage() {
   const { data: session } = useSession();
@@ -23,6 +24,7 @@ export default function TaskDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<any>({});
   const [employees, setEmployees] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [unassignReason, setUnassignReason] = useState("");
   const [unassigning, setUnassigning] = useState(false);
@@ -32,6 +34,9 @@ export default function TaskDetailPage() {
     fetch("/api/employees?pageSize=100")
       .then((response) => response.json())
       .then((json) => json.success && setEmployees(json.data.employees));
+    fetch("/api/products")
+      .then((response) => response.json())
+      .then((json) => json.success && setProducts(json.data));
   }, [id]);
 
   async function fetchTask() {
@@ -173,6 +178,36 @@ export default function TaskDetailPage() {
         <div className="space-y-4 rounded-lg border bg-white p-6">
           <h3 className="font-semibold text-gray-900">Chỉnh sửa task</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="text-sm">{lang === "ja" ? "業務タイプ" : "Loại công việc"}
+              <select
+                value={editData.workType || "PRODUCT"}
+                onChange={(e) => setEditData({
+                  ...editData,
+                  workType: e.target.value,
+                  productId: e.target.value === "DAILY" ? null : editData.productId,
+                  dailyCategory: e.target.value === "PRODUCT" ? null : editData.dailyCategory,
+                })}
+                className="mt-1 w-full rounded border px-3 py-2"
+              >
+                <option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option>
+                <option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option>
+              </select>
+            </label>
+            {editData.workType === "DAILY" ? (
+              <label className="text-sm">{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"}
+                <select value={editData.dailyCategory || ""} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value })} className="mt-1 w-full rounded border px-3 py-2" required>
+                  <option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>
+                  {DAILY_WORK_CATEGORIES.map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                </select>
+              </label>
+            ) : (
+              <label className="text-sm">{lang === "ja" ? "製品" : "Sản phẩm"}
+                <select value={editData.productId || ""} onChange={(e) => setEditData({ ...editData, productId: e.target.value })} className="mt-1 w-full rounded border px-3 py-2" required>
+                  <option value="">{lang === "ja" ? "製品を選択..." : "Chọn sản phẩm..."}</option>
+                  {products.filter((product) => product.isActive || product.id === task.productId).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                </select>
+              </label>
+            )}
             <label className="text-sm md:col-span-2">Mã task
               <input
                 value={editData.taskCode || ""}
@@ -216,10 +251,10 @@ export default function TaskDetailPage() {
       {/* Main info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-lg border">
         <div>
-          <label className="text-xs text-gray-500">Sản phẩm</label>
+          <label className="text-xs text-gray-500">{task.workType === "DAILY" ? (lang === "ja" ? "日常業務" : "Công việc hằng ngày") : (lang === "ja" ? "製品" : "Sản phẩm")}</label>
           <div className="flex items-center gap-2 mt-1">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: task.product?.color }} />
-            <span className="font-medium">{task.product?.name}</span>
+            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color }} />
+            <span className="font-medium">{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}</span>
           </div>
         </div>
         <div>

@@ -130,8 +130,12 @@ export async function PATCH(
       if (!task.actualEndDate && updateData.actualEndDate === undefined) updateData.actualEndDate = new Date();
     }
 
-    if (typeof updateData.productId === "string") {
-      const product = await prisma.product.findUnique({ where: { id: updateData.productId } });
+    const finalWorkType = (updateData.workType as string | undefined) ?? task.workType;
+    const finalProductId = updateData.productId === undefined ? task.productId : updateData.productId;
+    const finalDailyCategory = updateData.dailyCategory === undefined ? task.dailyCategory : updateData.dailyCategory;
+
+    if (finalWorkType === "PRODUCT" && typeof finalProductId === "string") {
+      const product = await prisma.product.findUnique({ where: { id: finalProductId } });
       if (!product?.isActive) {
         return NextResponse.json(
           { success: false, error: { code: "VALIDATION_ERROR", message: "Product not found or inactive" } },
@@ -140,7 +144,22 @@ export async function PATCH(
       }
     }
 
-    const trackedFields = ["taskCode", "status", "progress", "priority", "plannedStartDate", "plannedEndDate", "actualEndDate", "productId"] as const;
+    if (finalWorkType === "PRODUCT" && !finalProductId) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Product is required" } },
+        { status: 400 },
+      );
+    }
+    if (finalWorkType === "DAILY" && !finalDailyCategory) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Daily work category is required" } },
+        { status: 400 },
+      );
+    }
+    if (finalWorkType === "DAILY") updateData.productId = null;
+    if (finalWorkType === "PRODUCT") updateData.dailyCategory = null;
+
+    const trackedFields = ["taskCode", "status", "progress", "priority", "plannedStartDate", "plannedEndDate", "actualEndDate", "workType", "dailyCategory", "productId"] as const;
     const changes = trackedFields.flatMap((field) => {
       const newValue = (updateData as Record<string, unknown>)[field];
       if (newValue === undefined) return [];

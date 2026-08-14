@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
         zoneTasks: 0,
         gateTasks: 0,
         hunterTasks: 0,
+        dailyTasks: 0,
         reassignments: 0,
         tasks: [] as any[],
       });
@@ -77,9 +78,10 @@ export async function GET(req: NextRequest) {
       else emp.late++;
     }
 
-    if (task.product.code === "ZONE") emp.zoneTasks++;
-    if (task.product.code === "GATE") emp.gateTasks++;
-    if (task.product.code === "HUNTER") emp.hunterTasks++;
+    if (task.product?.code === "ZONE") emp.zoneTasks++;
+    if (task.product?.code === "GATE") emp.gateTasks++;
+    if (task.product?.code === "HUNTER") emp.hunterTasks++;
+    if (task.workType === "DAILY") emp.dailyTasks++;
 
     emp.tasks.push(task);
   }

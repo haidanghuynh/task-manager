@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/date";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { useLang } from "@/lib/i18n";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
+import { DAILY_WORK_COLOR, dailyWorkLabel } from "@/lib/task-work-type";
 
 type ViewMode = "list" | "assignee" | "team";
 
@@ -64,7 +65,7 @@ function TasksPageContent() {
   });
   const [groupedType, setGroupedType] = useState<string | false>(false);
   const [filters, setFilters] = useState(() => ({
-    search: "", status: "", product: "", priority: "",
+    search: "", status: "", product: "", workType: searchParams.get("workType") || "", priority: "",
     employee: searchParams.get("employee") || "",
     teamId: searchParams.get("teamId") || "",
     startDate: searchParams.get("startDate") || "",
@@ -121,6 +122,8 @@ function TasksPageContent() {
     if (filters.search) params.set("search", filters.search);
     if (filters.status) params.set("status", filters.status);
     if (filters.product) params.set("product", filters.product);
+    if (filters.workType) params.set("workType", filters.workType);
+    if (filters.workType) params.set("workType", filters.workType);
     if (filters.employee) params.set("employee", filters.employee);
     if (filters.priority) params.set("priority", filters.priority);
     if (filters.startDate) params.set("startDate", filters.startDate);
@@ -147,11 +150,11 @@ function TasksPageContent() {
       currentPage++;
     } while (currentPage <= totalPages);
 
-    const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note"];
+    const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note", "workType", "dailyCategory"];
     const rows = exported.map((task) => [
       task.taskCode, task.taskName, task.description, task.product?.code,
       task.currentAssignee?.employeeCode, csvDate(task.plannedStartDate), csvDate(task.plannedEndDate),
-      csvDate(task.actualStartDate), csvDate(task.actualEndDate), task.status, task.progress, task.priority, task.note,
+      csvDate(task.actualStartDate), csvDate(task.actualEndDate), task.status, task.progress, task.priority, task.note, task.workType, task.dailyCategory,
     ]);
     const csv = [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
     const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
@@ -203,7 +206,9 @@ function TasksPageContent() {
     await fetchTasks();
   }
 
-  const resetFilters = () => setFilters({ search: "", status: "", product: "", priority: "", employee: "", teamId: "", startDate: "", endDate: "", overdue: false });
+  const resetFilters = () => setFilters({ search: "", status: "", product: "", workType: "", priority: "", employee: "", teamId: "", startDate: "", endDate: "", overdue: false });
+  const workColor = (task: any) => task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280";
+  const workName = (task: any) => task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name;
 
   return (
     <div className="p-6 space-y-4">
@@ -255,6 +260,11 @@ function TasksPageContent() {
           <option value="WAITING">Đang chờ</option>
           <option value="COMPLETED">Hoàn thành</option>
           <option value="CANCELLED">Đã hủy</option>
+        </select>
+        <select className="border rounded px-2 py-1.5 text-sm" value={filters.workType} onChange={(e) => setFilters({ ...filters, workType: e.target.value })}>
+          <option value="">{lang === "ja" ? "すべての業務" : "Tất cả công việc"}</option>
+          <option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option>
+          <option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option>
         </select>
         <select className="border rounded px-2 py-1.5 text-sm" value={filters.priority} onChange={(e) => setFilters({ ...filters, priority: e.target.value })}>
           <option value="">Ưu tiên</option>
@@ -316,7 +326,7 @@ function TasksPageContent() {
                     <div className="ml-10 space-y-1">
                       {assignee.tasks.map((task: any) => (
                         <div key={task.id} className="flex items-center gap-2 py-1">
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: task.product?.color }} />
+                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: workColor(task) }} />
                           <Link href={`/tasks/${task.id}`} className="text-sm text-blue-600 hover:underline flex-1 truncate">{task.taskCode}: {task.taskName}</Link>
                           <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${STATUS_COLORS[task.status as TaskStatus]}`}>{STATUS_LABELS[task.status as TaskStatus]}</span>
                           <span className="text-[11px] text-gray-400">{formatDate(task.plannedStartDate)} → {formatDate(task.plannedEndDate)}</span>
@@ -357,7 +367,7 @@ function TasksPageContent() {
               <div className="divide-y">
                 {assignee.tasks.map((task: any) => (
                   <div key={task.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: task.product?.color }} />
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: workColor(task) }} />
                     <Link href={`/tasks/${task.id}`} className="text-sm text-blue-600 hover:underline flex-1 truncate">{task.taskCode}: {task.taskName}</Link>
                     <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[task.status as TaskStatus]}`}>{STATUS_LABELS[task.status as TaskStatus]}</span>
                     <span className="text-xs text-gray-400">{formatDate(task.plannedStartDate)} → {formatDate(task.plannedEndDate)}</span>
@@ -380,7 +390,7 @@ function TasksPageContent() {
                   <th className="text-left px-4 py-3 font-medium text-gray-700">Người phụ trách</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-700">Mã task</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-700">Tên task</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-700">Sản phẩm</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-700">{lang === "ja" ? "業務区分" : "Loại công việc"}</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-700">Bắt đầu</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-700">Kết thúc</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-700">Trạng thái</th>
@@ -399,8 +409,8 @@ function TasksPageContent() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1">
-                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: task.product?.color }} />
-                        {task.product?.name}
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: workColor(task) }} />
+                        {workName(task)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs">{formatDate(task.plannedStartDate)}</td>

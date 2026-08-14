@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/i18n";
+import { DAILY_WORK_CATEGORIES, dailyWorkLabel } from "@/lib/task-work-type";
 
 export default function NewTaskPage() {
   const { data: session } = useSession();
@@ -20,6 +21,8 @@ export default function NewTaskPage() {
   const [form, setForm] = useState({
     taskName: "",
     description: "",
+    workType: "PRODUCT",
+    dailyCategory: "",
     productId: "",
     taskNumber: "",
     assigneeId: "",
@@ -31,9 +34,9 @@ export default function NewTaskPage() {
   });
 
   const selectedProduct = products.find((product) => product.id === form.productId);
-  const taskCodePrefix = selectedProduct
-    ? selectedProduct.code
-    : "PRODUCT";
+  const taskCodePrefix = form.workType === "DAILY"
+    ? "DAILY"
+    : selectedProduct?.code || "PRODUCT";
 
   useEffect(() => {
     fetch("/api/products").then(r => r.json()).then(j => j.success && setProducts(j.data));
@@ -81,6 +84,21 @@ export default function NewTaskPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg border">
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === "ja" ? "業務タイプ *" : "Loại công việc *"}
+          </label>
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
+            <button type="button" onClick={() => setForm({ ...form, workType: "PRODUCT", dailyCategory: "" })}
+              className={`rounded-md px-3 py-2 text-sm ${form.workType === "PRODUCT" ? "bg-white font-medium text-blue-700 shadow-sm" : "text-gray-600"}`}>
+              {lang === "ja" ? "製品タスク" : "Task sản phẩm"}
+            </button>
+            <button type="button" onClick={() => setForm({ ...form, workType: "DAILY", productId: "" })}
+              className={`rounded-md px-3 py-2 text-sm ${form.workType === "DAILY" ? "bg-white font-medium text-purple-700 shadow-sm" : "text-gray-600"}`}>
+              {lang === "ja" ? "日常業務" : "Công việc hằng ngày"}
+            </button>
+          </div>
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Tên task *</label>
           <input type="text" required value={form.taskName} onChange={e => setForm({...form, taskName: e.target.value})}
             className="w-full border rounded px-3 py-2 text-sm" placeholder="Nhập tên task..." />
@@ -94,12 +112,25 @@ export default function NewTaskPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sản phẩm *</label>
-            <select required value={form.productId} onChange={e => setForm({...form, productId: e.target.value})}
-              className="w-full border rounded px-3 py-2 text-sm">
-              <option value="">Chọn sản phẩm...</option>
-              {products.filter((p) => p.isActive).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            {form.workType === "PRODUCT" ? (
+              <>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === "ja" ? "製品 *" : "Sản phẩm *"}</label>
+                <select required value={form.productId} onChange={e => setForm({...form, productId: e.target.value})}
+                  className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">{lang === "ja" ? "製品を選択..." : "Chọn sản phẩm..."}</option>
+                  {products.filter((p) => p.isActive).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === "ja" ? "業務カテゴリ *" : "Nhóm công việc *"}</label>
+                <select required value={form.dailyCategory} onChange={e => setForm({...form, dailyCategory: e.target.value})}
+                  className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>
+                  {DAILY_WORK_CATEGORIES.map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                </select>
+              </>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

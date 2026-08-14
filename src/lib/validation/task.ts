@@ -15,12 +15,23 @@ export const taskStatusSchema = z.enum([
 ]);
 
 export const taskPrioritySchema = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+export const taskWorkTypeSchema = z.enum(["PRODUCT", "DAILY"]);
+export const dailyWorkCategorySchema = z.enum([
+  "MEETING",
+  "TRAINING",
+  "SUPPORT",
+  "DOCUMENTATION",
+  "REPORT",
+  "OTHER",
+]);
 
 export const createTaskSchema = z
   .object({
     taskName: z.string().trim().min(1).max(200),
     description: z.string().trim().max(5000).optional().nullable(),
-    productId: z.string().min(1),
+    workType: taskWorkTypeSchema.default("PRODUCT"),
+    dailyCategory: dailyWorkCategorySchema.optional().nullable(),
+    productId: z.string().trim().optional().default(""),
     taskNumber: z
       .string()
       .trim()
@@ -40,7 +51,15 @@ export const createTaskSchema = z
   .refine(
     (data) => !data.plannedEndDate || data.plannedEndDate >= data.plannedStartDate,
     { path: ["plannedEndDate"], message: "End date cannot be before start date" },
-  );
+  )
+  .superRefine((data, context) => {
+    if (data.workType === "PRODUCT" && !data.productId) {
+      context.addIssue({ code: "custom", path: ["productId"], message: "Product is required" });
+    }
+    if (data.workType === "DAILY" && !data.dailyCategory) {
+      context.addIssue({ code: "custom", path: ["dailyCategory"], message: "Daily work category is required" });
+    }
+  });
 
 export const updateTaskSchema = z.object({
   taskCode: z
@@ -52,7 +71,9 @@ export const updateTaskSchema = z.object({
     .optional(),
   taskName: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
-  productId: z.string().min(1).optional(),
+  workType: taskWorkTypeSchema.optional(),
+  dailyCategory: dailyWorkCategorySchema.nullable().optional(),
+  productId: z.string().trim().nullable().optional(),
   plannedStartDate: dateString.optional(),
   plannedEndDate: dateString.optional(),
   actualStartDate: dateString.nullable().optional(),

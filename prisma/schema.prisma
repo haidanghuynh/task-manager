@@ -104,7 +104,9 @@ model Task {
   taskCode          String
   taskName          String
   description       String?
-  productId         String
+  workType          String    @default("PRODUCT") // PRODUCT, DAILY
+  dailyCategory     String?   // MEETING, TRAINING, SUPPORT, DOCUMENTATION, REPORT, OTHER
+  productId         String?
   currentAssigneeId String?
   createdById       String
   plannedStartDate  DateTime
@@ -119,7 +121,7 @@ model Task {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime?
 
-  product           Product                  @relation(fields: [productId], references: [id])
+  product           Product?                 @relation(fields: [productId], references: [id])
   currentAssignee   Employee?                @relation("TaskAssignee", fields: [currentAssigneeId], references: [id], onDelete: SetNull)
   createdBy         User                     @relation("TaskCreatedBy", fields: [createdById], references: [id])
   assignmentHistory TaskAssignmentHistory[]
@@ -131,6 +133,7 @@ model Task {
   @@index([taskCode])
   @@index([currentAssigneeId])
   @@index([status])
+  @@index([workType])
   @@index([plannedStartDate, plannedEndDate])
   @@index([deletedAt])
   @@map("tasks")

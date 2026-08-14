@@ -25,6 +25,7 @@ type RankingChartProps = {
   teams: RankingEntry[];
   periodLabel: { vi: string; ja: string };
   range: { from: string; to: string };
+  includeDaily: boolean;
 };
 
 type RankingTooltipProps = {
@@ -62,7 +63,7 @@ function RankingTooltip({ active, payload, labels }: RankingTooltipProps) {
   );
 }
 
-export function RankingChart({ members, teams, periodLabel, range }: RankingChartProps) {
+export function RankingChart({ members, teams, periodLabel, range, includeDaily }: RankingChartProps) {
   const { lang } = useLang();
   const [mode, setMode] = useState<"members" | "teams">("members");
   const source = mode === "members" ? members : teams;
@@ -72,12 +73,12 @@ export function RankingChart({ members, teams, periodLabel, range }: RankingChar
     remaining: Math.max(0, entry.total - entry.completed - entry.cancelled),
   }));
   const text = lang === "ja" ? {
-    title: "ランキング", description: `${periodLabel.ja}のタスク集計`,
+    title: "ランキング", description: `${periodLabel.ja}の${includeDaily ? "全業務" : "製品タスク"}集計`,
     members: "全社員", teams: "チーム別", completed: "完了", remaining: "未完了",
     total: "合計", planned: "未着手", progress: "進行中", waiting: "保留中", cancelled: "キャンセル済み", overdue: "期限超過", rate: "完了率",
     people: "名", empty: "ランキングデータがありません。",
   } : {
-    title: "Bảng xếp hạng", description: `Thống kê task ${periodLabel.vi}`,
+    title: "Bảng xếp hạng", description: `Thống kê ${includeDaily ? "toàn bộ công việc" : "task sản phẩm"} ${periodLabel.vi}`,
     members: "Toàn bộ thành viên", teams: "Theo từng nhóm", completed: "Hoàn thành", remaining: "Chưa hoàn thành",
     total: "Tổng", planned: "Chưa bắt đầu", progress: "Đang làm", waiting: "Đang chờ", cancelled: "Đã hủy", overdue: "Quá hạn", rate: "Tỷ lệ hoàn thành",
     people: "thành viên", empty: "Chưa có dữ liệu xếp hạng.",
@@ -118,7 +119,7 @@ export function RankingChart({ members, teams, periodLabel, range }: RankingChar
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-3 py-2">#</th><th className="px-3 py-2">{mode === "members" ? text.members : text.teams}</th>{mode === "teams" && <th className="px-3 py-2">{text.people}</th>}<th className="px-3 py-2">{text.total}</th><th className="px-3 py-2">{text.completed}</th><th className="px-3 py-2">{text.progress}</th><th className="px-3 py-2">{text.cancelled}</th><th className="px-3 py-2">{text.overdue}</th><th className="px-3 py-2">{text.rate}</th></tr></thead>
-              <tbody className="divide-y">{source.map((entry, index) => <tr key={entry.id} className={index < 3 ? "bg-amber-50/40" : ""}><td className="px-3 py-2 font-bold text-gray-600">{index + 1}</td><td className="px-3 py-2">{mode === "members" ? <Link href={`/tasks?employee=${encodeURIComponent(entry.id)}&startDate=${range.from}&endDate=${range.to}&view=list`} className="font-medium text-blue-700 hover:underline">{entry.name}</Link> : <p className="font-medium text-gray-900">{entry.name}</p>}<p className="text-xs text-gray-500">{entry.subtitle}</p></td>{mode === "teams" && <td className="px-3 py-2">{entry.memberCount || 0}</td>}<td className="px-3 py-2">{entry.total}</td><td className="px-3 py-2 font-semibold text-green-700">{entry.completed}</td><td className="px-3 py-2">{entry.inProgress}</td><td className="px-3 py-2">{entry.cancelled}</td><td className="px-3 py-2 font-medium text-red-600">{entry.overdue}</td><td className="px-3 py-2"><span className="inline-flex min-w-14 justify-center rounded-full bg-blue-50 px-2 py-1 font-semibold text-blue-700">{entry.completionRate}%</span></td></tr>)}</tbody>
+              <tbody className="divide-y">{source.map((entry, index) => <tr key={entry.id} className={index < 3 ? "bg-amber-50/40" : ""}><td className="px-3 py-2 font-bold text-gray-600">{index + 1}</td><td className="px-3 py-2">{mode === "members" ? <Link href={`/tasks?employee=${encodeURIComponent(entry.id)}&startDate=${range.from}&endDate=${range.to}&view=list${includeDaily ? "" : "&workType=PRODUCT"}`} className="font-medium text-blue-700 hover:underline">{entry.name}</Link> : <p className="font-medium text-gray-900">{entry.name}</p>}<p className="text-xs text-gray-500">{entry.subtitle}</p></td>{mode === "teams" && <td className="px-3 py-2">{entry.memberCount || 0}</td>}<td className="px-3 py-2">{entry.total}</td><td className="px-3 py-2 font-semibold text-green-700">{entry.completed}</td><td className="px-3 py-2">{entry.inProgress}</td><td className="px-3 py-2">{entry.cancelled}</td><td className="px-3 py-2 font-medium text-red-600">{entry.overdue}</td><td className="px-3 py-2"><span className="inline-flex min-w-14 justify-center rounded-full bg-blue-50 px-2 py-1 font-semibold text-blue-700">{entry.completionRate}%</span></td></tr>)}</tbody>
             </table>
           </div>
         </div>

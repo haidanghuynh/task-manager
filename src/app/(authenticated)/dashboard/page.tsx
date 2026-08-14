@@ -84,7 +84,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const canViewTasks = hasPermission(user, "TASK_VIEW");
 
   const now = new Date();
-  const period = resolveDashboardPeriod(await searchParams, now);
+  const resolvedSearchParams = await searchParams;
+  const period = resolveDashboardPeriod(resolvedSearchParams, now);
+  const includeDailyInRanking = firstParam(resolvedSearchParams.includeDaily) === "true";
 
   // Build filter for non-manager/non-admin users
   const taskFilterBase: any = {
@@ -100,9 +102,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   // Dashboard stats
-  const [totalTasks, plannedTasks, inProgressTasks, completedTasks, overdueTasks] =
+  const [totalTasks, productTasks, dailyWorkTasks, plannedTasks, inProgressTasks, completedTasks, overdueTasks] =
     await Promise.all([
       prisma.task.count({ where: taskFilterBase }),
+      prisma.task.count({ where: { ...taskFilterBase, workType: "PRODUCT" } }),
+      prisma.task.count({ where: { ...taskFilterBase, workType: "DAILY" } }),
       prisma.task.count({ where: { ...taskFilterBase, status: "PLANNED" } }),
       prisma.task.count({ where: { ...taskFilterBase, status: "IN_PROGRESS" } }),
       prisma.task.count({ where: { ...taskFilterBase, status: "COMPLETED" } }),
@@ -162,12 +166,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       select: {
         id: true, employeeCode: true, fullName: true,
         team: { select: { id: true, name: true } },
-        tasks: {
-          where: {
-            deletedAt: null,
-            plannedStartDate: { lte: period.end },
-            plannedEndDate: { gte: period.start },
-          },
+          tasks: {
+            where: {
+              deletedAt: null,
+              plannedStartDate: { lte: period.end },
+              plannedEndDate: { gte: period.start },
+              ...(includeDailyInRanking ? {} : { workType: "PRODUCT" }),
+            },
           select: { status: true, plannedEndDate: true },
         },
       },
@@ -224,6 +229,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const stats = [
     { label: "Tổng task trong kỳ", value: totalTasks, color: "bg-blue-500" },
+    { label: "Task sản phẩm", value: productTasks, color: "bg-cyan-500" },
+    { label: "Công việc hằng ngày", value: dailyWorkTasks, color: "bg-purple-500" },
     { label: "Chưa bắt đầu", value: plannedTasks, color: "bg-gray-500" },
     { label: "Đang thực hiện", value: inProgressTasks, color: "bg-yellow-500" },
     { label: "Hoàn thành", value: completedTasks, color: "bg-green-500" },
@@ -245,7 +252,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <DashboardPeriodSummary label={{ vi: period.labelVi, ja: period.labelJa }} />
       </div>
 
-      <DashboardPeriodFilter mode={period.mode} month={period.month} year={period.year} from={period.from} to={period.to} />
+      <DashboardPeriodFilter mode={period.mode} month={period.month} year={period.year} from={period.from} to={period.to} includeDaily={includeDailyInRanking} />
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -269,6 +276,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           teams={teamRanking}
           periodLabel={{ vi: period.labelVi, ja: period.labelJa }}
           range={{ from: dateKey(period.start), to: dateKey(period.end) }}
+          includeDaily={includeDailyInRanking}
         />
       )}
 
@@ -290,7 +298,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <div
                   className="h-full rounded-full"
                   style={{
-                    width: `${totalTasks > 0 ? (product._count.tasks / totalTasks) * 100 : 0}%`,
+                    width: `${productTasks > 0 ? (product._count.tasks / productTasks) * 100 : 0}%`,
                     backgroundColor: product.color,
                   }}
                 />

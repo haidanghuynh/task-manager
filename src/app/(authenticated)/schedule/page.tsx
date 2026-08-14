@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, type UIEvent } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n";
+import { DAILY_WORK_COLOR, dailyWorkLabel } from "@/lib/task-work-type";
 
 type ScheduleTask = {
   id: string;
@@ -12,6 +13,8 @@ type ScheduleTask = {
   plannedStartDate: string;
   plannedEndDate: string;
   status: string;
+  workType: "PRODUCT" | "DAILY";
+  dailyCategory?: string | null;
   product?: { name: string; color: string } | null;
 };
 
@@ -86,6 +89,8 @@ export default function SchedulePage() {
   const [products, setProducts] = useState<ScheduleProduct[]>([]);
   const [viewMode, setViewMode] = useState<"employees" | "teams">("teams");
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showProductTasks, setShowProductTasks] = useState(true);
+  const [showDailyWork, setShowDailyWork] = useState(true);
   const [collapsedTeams, setCollapsedTeams] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -95,6 +100,9 @@ export default function SchedulePage() {
   const currentMonth = visibleMonth.getMonth();
   const currentYear = visibleMonth.getFullYear();
   const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+  const visibleTasks = tasks.filter((task) =>
+    task.workType === "DAILY" ? showDailyWork : showProductTasks,
+  );
 
   useEffect(() => {
     Promise.all([
@@ -184,7 +192,7 @@ export default function SchedulePage() {
     .filter((team) => team.employees.length > 0);
   const employeesWithoutTeam = employees.filter((employee) => !employee.teamId);
   const employeesWithoutTeamIds = new Set(employeesWithoutTeam.map((employee) => employee.id));
-  const unassignedTaskCount = tasks.filter(
+  const unassignedTaskCount = visibleTasks.filter(
     (task) => task.currentAssigneeId && employeesWithoutTeamIds.has(task.currentAssigneeId),
   ).length;
   const monthStartKey = `${monthStr}-01`;
@@ -209,7 +217,7 @@ export default function SchedulePage() {
   const expandAllTeams = () => setCollapsedTeams(new Set());
 
   const renderEmployeeRow = (emp: ScheduleEmployee) => {
-    const empTasks = tasks.filter((task) => task.currentAssigneeId === emp.id);
+    const empTasks = visibleTasks.filter((task) => task.currentAssigneeId === emp.id);
     const positionedTasks = positionTasks(empTasks, monthStartKey, monthEndKey);
     const laneCount = Math.max(1, ...positionedTasks.map((task) => task.lane + 1));
     const rowHeight = laneCount * 26 + 8;
@@ -232,7 +240,7 @@ export default function SchedulePage() {
                   href={`/tasks/${task.id}`}
                   className="absolute left-0 rounded-full hover:opacity-80 transition-opacity"
                   style={{
-                    backgroundColor: task.product?.color || "#6B7280",
+                    backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280",
                     width: `${inclusiveDayCount(task.visibleStartKey, task.visibleEndKey) * 100}%`,
                     minWidth: "100%",
                     maxWidth: "none",
@@ -240,10 +248,10 @@ export default function SchedulePage() {
                     top: `${4 + task.lane * 26}px`,
                     zIndex: 10 + task.lane,
                   }}
-                  title={`${task.taskCode}: ${task.taskName}\n${task.product?.name}\n${task.status}`}
+                  title={`${task.taskCode}: ${task.taskName}\n${task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}\n${task.status}`}
                 >
                   <span className="text-[10px] text-white font-medium px-1 truncate block leading-[22px]">
-                    {task.product?.name}
+                    {task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}
                   </span>
                 </Link>
               ))}
@@ -285,6 +293,24 @@ export default function SchedulePage() {
               </button>
             </div>
           )}
+          <div data-i18n-ignore className="flex rounded-lg border p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowProductTasks((value) => !value)}
+              aria-pressed={showProductTasks}
+              className={`rounded-md px-2.5 py-1 ${showProductTasks ? "bg-blue-600 text-white" : "text-gray-500"}`}
+            >
+              {lang === "ja" ? "製品タスク" : "Task sản phẩm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDailyWork((value) => !value)}
+              aria-pressed={showDailyWork}
+              className={`rounded-md px-2.5 py-1 ${showDailyWork ? "bg-purple-600 text-white" : "text-gray-500"}`}
+            >
+              {lang === "ja" ? "日常業務" : "Công việc hằng ngày"}
+            </button>
+          </div>
           <label data-i18n-ignore className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
             <input
               type="checkbox"
@@ -365,7 +391,7 @@ export default function SchedulePage() {
               <>
                 {groupedTeams.map((team) => {
                   const employeeIds = new Set(team.employees.map((employee) => employee.id));
-                  const taskCount = tasks.filter((task) => task.currentAssigneeId && employeeIds.has(task.currentAssigneeId)).length;
+                  const taskCount = visibleTasks.filter((task) => task.currentAssigneeId && employeeIds.has(task.currentAssigneeId)).length;
                   const collapsed = collapsedTeams.has(team.id);
                   return (
                     <div key={team.id}>
@@ -424,6 +450,10 @@ export default function SchedulePage() {
               {product.name}
             </div>
           ))}
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: DAILY_WORK_COLOR }} />
+            {lang === "ja" ? "日常業務" : "Công việc hằng ngày"}
+          </div>
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 
 const statuses = new Set(["PLANNED", "IN_PROGRESS", "WAITING", "COMPLETED", "CANCELLED"]);
 const priorities = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+const dailyCategories = new Set(["MEETING", "TRAINING", "SUPPORT", "DOCUMENTATION", "REPORT", "OTHER"]);
 
 function parseDate(value: string): Date | null {
   if (!value.trim()) return null;
@@ -51,7 +52,8 @@ export async function POST(req: NextRequest) {
       ? rawRow.map((value: unknown) => String(value ?? "").trim())
       : [];
     const [requestedCode, taskName, description, productCode, assigneeCode, startValue, endValue,
-      actualStartValue, actualEndValue, statusValue, progressValue, priorityValue, note] = values;
+      actualStartValue, actualEndValue, statusValue, progressValue, priorityValue, note,
+      workTypeValue, dailyCategoryValue] = values;
     const rowNumber = index + 2;
     const product = productByCode.get((productCode || "").toLowerCase());
     const employeeMatches = employeeGroups.get((assigneeCode || "").toLowerCase()) || [];
@@ -62,10 +64,14 @@ export async function POST(req: NextRequest) {
     const status = (statusValue || "PLANNED").toUpperCase();
     const priority = (priorityValue || "MEDIUM").toUpperCase();
     const progress = progressValue === "" || progressValue === undefined ? (status === "COMPLETED" ? 100 : 0) : Number(progressValue);
+    const workType = (workTypeValue || "PRODUCT").toUpperCase();
+    const dailyCategory = (dailyCategoryValue || "").toUpperCase();
 
     let reason = "";
     if (!taskName || taskName.length > 200) reason = "Invalid task name";
-    else if (!product) reason = `Product code not found: ${productCode || "(empty)"}`;
+    else if (workType !== "PRODUCT" && workType !== "DAILY") reason = `Invalid work type: ${workType}`;
+    else if (workType === "PRODUCT" && !product) reason = `Product code not found: ${productCode || "(empty)"}`;
+    else if (workType === "DAILY" && !dailyCategories.has(dailyCategory)) reason = `Invalid daily category: ${dailyCategory || "(empty)"}`;
     else if (assigneeCode && employeeMatches.length !== 1) reason = employeeMatches.length > 1 ? `Employee code is duplicated: ${assigneeCode}` : `Employee code not found: ${assigneeCode}`;
     else if (!start || !end || end < start) reason = "Invalid planned date range";
     else if ((actualStartValue && !actualStart) || (actualEndValue && !actualEnd)) reason = "Invalid actual date";
@@ -85,7 +91,10 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction(async (tx) => {
         const task = await tx.task.create({
           data: {
-            taskCode, taskName, description: description || null, productId: product!.id,
+            taskCode, taskName, description: description || null,
+            workType,
+            dailyCategory: workType === "DAILY" ? dailyCategory : null,
+            productId: workType === "PRODUCT" ? product!.id : null,
             currentAssigneeId: employeeMatches[0]?.id || null, createdById: user.id,
             plannedStartDate: start!, plannedEndDate: end!,
             actualStartDate: actualStart ?? (status !== "PLANNED" ? start : null),
