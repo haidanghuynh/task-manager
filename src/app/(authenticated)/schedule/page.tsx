@@ -43,10 +43,6 @@ type PositionedTask = ScheduleTask & {
   lane: number;
 };
 
-function calendarDateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 function apiDateKey(value: string) {
   return value.slice(0, 10);
 }
@@ -226,33 +222,27 @@ export default function SchedulePage() {
           </div>
         </div>
         {daysInMonth.map((day, dayIndex) => {
-          const dayKey = calendarDateKey(day);
-          const startingTasks = positionedTasks.filter((task) => task.visibleStartKey === dayKey);
           return (
-            <div key={dayIndex} style={{ minHeight: `${rowHeight}px` }} className={`border-r relative ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`}>
-              {startingTasks.map((task) => (
-                <Link
-                  key={task.id}
-                  href={`/tasks/${task.id}`}
-                  className="absolute left-0 rounded-full hover:opacity-80 transition-opacity"
-                  style={{
-                    backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280",
-                    width: `${inclusiveDayCount(task.visibleStartKey, task.visibleEndKey) * 100}%`,
-                    minWidth: "100%",
-                    maxWidth: "none",
-                    height: "22px",
-                    top: `${4 + task.lane * 26}px`,
-                    zIndex: 10 + task.lane,
-                  }}
-                  title={`${task.taskCode}: ${task.taskName}\n${task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}\n${task.status}`}
-                >
-                  <span className="text-[10px] text-white font-medium px-1 truncate block leading-[22px]">
-                    {task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}
-                  </span>
-                </Link>
-              ))}
-            </div>
+            <div key={dayIndex} style={{ minHeight: `${rowHeight}px`, gridRow: 1 }} className={`border-r ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`} />
           );
+        })}
+        {positionedTasks.map((task) => {
+          const startIndex = inclusiveDayCount(monthStartKey, task.visibleStartKey) - 1;
+          const duration = inclusiveDayCount(task.visibleStartKey, task.visibleEndKey);
+          return <Link
+            key={task.id}
+            href={`/tasks/${task.id}`}
+            className="relative mx-px self-start overflow-hidden rounded-full transition-opacity hover:opacity-80"
+            style={{
+              gridColumn: `${startIndex + 2} / span ${duration}`,
+              gridRow: 1,
+              backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280",
+              height: "22px",
+              marginTop: `${4 + task.lane * 26}px`,
+              zIndex: 10 + task.lane,
+            }}
+            title={`${task.taskCode}: ${task.taskName}\n${task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}\n${task.status}`}
+          ><span className="block truncate px-1 text-[10px] font-medium leading-[22px] text-white">{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}</span></Link>;
         })}
       </div>
     );
