@@ -11,18 +11,23 @@ export const DAILY_WORK_CATEGORIES = [
 
 export type DailyWorkCategory = (typeof DAILY_WORK_CATEGORIES)[number];
 
-const DAILY_WORK_LABELS: Record<DailyWorkCategory, { vi: string; ja: string }> = {
-  MEETING: { vi: "Họp", ja: "会議" },
-  TRAINING: { vi: "Đào tạo", ja: "研修" },
-  SUPPORT: { vi: "Hỗ trợ", ja: "サポート" },
-  DOCUMENTATION: { vi: "Tài liệu", ja: "資料作成" },
-  REPORT: { vi: "Báo cáo", ja: "報告" },
-  OTHER: { vi: "Khác", ja: "その他" },
-};
+export type DailyWorkCategoryOption = { id?: string; code: string; nameVi: string; nameJa: string; color: string; isActive?: boolean };
 
-export function dailyWorkLabel(category: string | null | undefined, lang: "vi" | "ja" = "vi") {
-  if (!category || !(category in DAILY_WORK_LABELS)) {
-    return category || (lang === "ja" ? "日常業務" : "Công việc hằng ngày");
-  }
-  return DAILY_WORK_LABELS[category as DailyWorkCategory][lang];
+export const DEFAULT_DAILY_WORK_OPTIONS: DailyWorkCategoryOption[] = [
+  { code: "MEETING", nameVi: "Họp", nameJa: "会議", color: DAILY_WORK_COLOR },
+  { code: "TRAINING", nameVi: "Đào tạo", nameJa: "研修", color: DAILY_WORK_COLOR },
+  { code: "SUPPORT", nameVi: "Hỗ trợ", nameJa: "サポート", color: DAILY_WORK_COLOR },
+  { code: "DOCUMENTATION", nameVi: "Tài liệu", nameJa: "資料作成", color: DAILY_WORK_COLOR },
+  { code: "REPORT", nameVi: "Báo cáo", nameJa: "報告", color: DAILY_WORK_COLOR },
+];
+
+export function dailyWorkLabel(category: string | null | undefined, lang: "vi" | "ja" = "vi", options: DailyWorkCategoryOption[] = DEFAULT_DAILY_WORK_OPTIONS) {
+  if (!category) return lang === "ja" ? "日常業務" : "Công việc hằng ngày";
+  if (category === "OTHER") return lang === "ja" ? "その他" : "Khác";
+  const option = options.find((item) => item.code === category);
+  return option ? (lang === "ja" ? option.nameJa : option.nameVi) : category;
+}
+
+export function dailyWorkColor(category: string | null | undefined, options: DailyWorkCategoryOption[] = DEFAULT_DAILY_WORK_OPTIONS) {
+  return options.find((item) => item.code === category)?.color || DAILY_WORK_COLOR;
 }

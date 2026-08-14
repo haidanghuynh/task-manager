@@ -104,6 +104,19 @@ model Product {
   @@map("products")
 }
 
+model DailyWorkCategory {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  nameVi    String
+  nameJa    String
+  color     String   @default("#8B5CF6")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("daily_work_categories")
+}
+
 model Task {
   id                String    @id @default(cuid())
   taskCode          String

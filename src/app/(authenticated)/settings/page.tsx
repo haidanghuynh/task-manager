@@ -15,8 +15,12 @@ export default function SettingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ code: "", name: "", color: "#6B7280" });
+  const [dailyCategories, setDailyCategories] = useState<any[]>([]);
+  const [showDailyForm, setShowDailyForm] = useState(false);
+  const [editingDailyId, setEditingDailyId] = useState<string | null>(null);
+  const [dailyForm, setDailyForm] = useState({ code: "", nameVi: "", nameJa: "", color: "#8B5CF6" });
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => { fetchProducts(); fetchDailyCategories(); }, []);
 
   async function fetchProducts() {
     setLoading(true);
@@ -43,6 +47,38 @@ export default function SettingsPage() {
     if (!confirm("Bạn có chắc muốn xóa/vô hiệu hóa sản phẩm này?")) return;
     await fetch(`/api/products?id=${id}`, { method: "DELETE" });
     fetchProducts();
+  }
+
+  async function fetchDailyCategories() {
+    const response = await fetch("/api/daily-work-categories");
+    const result = await response.json();
+    if (result.success) setDailyCategories(result.data);
+  }
+
+  async function saveDailyCategory(event: React.FormEvent) {
+    event.preventDefault();
+    const url = editingDailyId ? `/api/daily-work-categories?id=${editingDailyId}` : "/api/daily-work-categories";
+    const response = await fetch(url, { method: editingDailyId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dailyForm) });
+    const result = await response.json();
+    if (!result.success) { alert(lang === "ja" ? "日常業務カテゴリを保存できません。" : "Không thể lưu nhóm công việc hàng ngày."); return; }
+    setShowDailyForm(false); setEditingDailyId(null); setDailyForm({ code: "", nameVi: "", nameJa: "", color: "#8B5CF6" });
+    fetchDailyCategories();
+  }
+
+  function startDailyEdit(category: any) {
+    setEditingDailyId(category.id); setShowDailyForm(false);
+    setDailyForm({ code: category.code, nameVi: category.nameVi, nameJa: category.nameJa, color: category.color });
+  }
+
+  async function deleteDailyCategory(id: string) {
+    if (!confirm(lang === "ja" ? "このカテゴリを削除または無効化しますか？" : "Bạn có chắc muốn xóa hoặc vô hiệu hóa nhóm công việc này?")) return;
+    await fetch(`/api/daily-work-categories?id=${id}`, { method: "DELETE" });
+    fetchDailyCategories();
+  }
+
+  async function activateDailyCategory(id: string) {
+    await fetch(`/api/daily-work-categories?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) });
+    fetchDailyCategories();
   }
 
   async function handleActivate(id: string) {
@@ -125,6 +161,22 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Daily work categories */}
+        <div className="rounded-lg border bg-white p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div><h3 data-i18n-ignore className="text-lg font-semibold text-gray-900">{lang === "ja" ? "日常業務カテゴリ" : "Công việc hàng ngày"}</h3><p data-i18n-ignore className="mt-1 text-xs text-gray-500">{lang === "ja" ? "タスク作成時に選択するカテゴリを管理します。" : "Quản lý các nhóm được chọn khi tạo công việc hàng ngày."}</p></div>
+            <button data-i18n-ignore onClick={() => { setShowDailyForm(!showDailyForm); setEditingDailyId(null); setDailyForm({ code: "", nameVi: "", nameJa: "", color: "#8B5CF6" }); }} className="text-sm text-blue-600 hover:underline">{lang === "ja" ? "+ 追加" : "+ Thêm"}</button>
+          </div>
+          {(showDailyForm || editingDailyId) && <form onSubmit={saveDailyCategory} className="mb-4 space-y-2 rounded bg-gray-50 p-3">
+            <input data-i18n-ignore required maxLength={50} pattern="[A-Za-z0-9][A-Za-z0-9_-]*" disabled={Boolean(editingDailyId)} value={dailyForm.code} onChange={(event) => setDailyForm({ ...dailyForm, code: event.target.value.toUpperCase() })} placeholder={lang === "ja" ? "コード（例：REVIEW）" : "Mã nhóm (ví dụ: REVIEW)"} className="w-full rounded border px-2 py-1 text-sm disabled:bg-gray-100" />
+            <input data-i18n-ignore required maxLength={100} value={dailyForm.nameVi} onChange={(event) => setDailyForm({ ...dailyForm, nameVi: event.target.value })} placeholder="Tên tiếng Việt" className="w-full rounded border px-2 py-1 text-sm" />
+            <input data-i18n-ignore required maxLength={100} value={dailyForm.nameJa} onChange={(event) => setDailyForm({ ...dailyForm, nameJa: event.target.value })} placeholder="日本語名" className="w-full rounded border px-2 py-1 text-sm" />
+            <div className="flex items-center gap-2"><input type="color" value={dailyForm.color} onChange={(event) => setDailyForm({ ...dailyForm, color: event.target.value })} className="h-8 w-8 cursor-pointer rounded border" /><span className="text-xs text-gray-500">{dailyForm.color}</span></div>
+            <div className="flex gap-2"><button data-i18n-ignore type="submit" className="rounded bg-blue-600 px-3 py-1 text-xs text-white">{editingDailyId ? (lang === "ja" ? "更新" : "Cập nhật") : (lang === "ja" ? "作成" : "Tạo")}</button><button data-i18n-ignore type="button" onClick={() => { setShowDailyForm(false); setEditingDailyId(null); }} className="rounded border px-3 py-1 text-xs">{lang === "ja" ? "キャンセル" : "Hủy"}</button></div>
+          </form>}
+          <div className="space-y-2">{dailyCategories.map((category: any) => <div key={category.id} className="flex items-center gap-3 rounded-lg bg-gray-50 p-3"><span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: category.color }} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{lang === "ja" ? category.nameJa : category.nameVi}</p><p className="text-xs text-gray-500">{category.code} · {lang === "ja" ? category.nameVi : category.nameJa}</p></div><span className={`rounded-full px-2 py-0.5 text-xs ${category.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{category.isActive ? "Active" : "Inactive"}</span><button data-i18n-ignore onClick={() => startDailyEdit(category)} className="text-xs text-blue-600 hover:underline">{lang === "ja" ? "編集" : "Sửa"}</button>{!category.isActive && <button data-i18n-ignore onClick={() => activateDailyCategory(category.id)} className="text-xs text-green-600 hover:underline">{lang === "ja" ? "有効化" : "Kích hoạt"}</button>}<button data-i18n-ignore onClick={() => deleteDailyCategory(category.id)} className="text-xs text-red-600 hover:underline">{lang === "ja" ? "削除" : "Xóa"}</button></div>)}</div>
         </div>
 
         {/* System Info */}

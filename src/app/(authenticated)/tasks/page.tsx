@@ -9,7 +9,8 @@ import { formatDate } from "@/lib/date";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { useLang } from "@/lib/i18n";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
-import { DAILY_WORK_COLOR, dailyWorkLabel } from "@/lib/task-work-type";
+import { dailyWorkColor, dailyWorkLabel } from "@/lib/task-work-type";
+import { useDailyWorkCategories } from "@/lib/use-daily-work-categories";
 
 type ViewMode = "list" | "assignee" | "team";
 
@@ -51,6 +52,7 @@ export default function TasksPage() {
 function TasksPageContent() {
   const { data: session } = useSession();
   const { lang } = useLang();
+  const dailyCategories = useDailyWorkCategories();
   const searchParams = useSearchParams();
   const user = session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
 
@@ -207,8 +209,8 @@ function TasksPageContent() {
   }
 
   const resetFilters = () => setFilters({ search: "", status: "", product: "", workType: "", priority: "", employee: "", teamId: "", startDate: "", endDate: "", overdue: false });
-  const workColor = (task: any) => task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color || "#6B7280";
-  const workName = (task: any) => task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name;
+  const workColor = (task: any) => task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280";
+  const workName = (task: any) => task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name;
 
   return (
     <div className="p-6 space-y-4">

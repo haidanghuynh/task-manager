@@ -8,11 +8,13 @@ import { formatDate } from "@/lib/date";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
 import type { TaskStatus, TaskPriority } from "@/types";
 import { useLang } from "@/lib/i18n";
-import { DAILY_WORK_CATEGORIES, DAILY_WORK_COLOR, dailyWorkLabel } from "@/lib/task-work-type";
+import { dailyWorkColor, dailyWorkLabel } from "@/lib/task-work-type";
+import { useDailyWorkCategories } from "@/lib/use-daily-work-categories";
 
 export default function TaskDetailPage() {
   const { data: session } = useSession();
   const { lang } = useLang();
+  const dailyCategories = useDailyWorkCategories();
   const user = session?.user as any;
   const params = useParams();
   const router = useRouter();
@@ -195,12 +197,12 @@ export default function TaskDetailPage() {
             </label>
             {editData.workType === "DAILY" ? (
               <label className="text-sm">{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"}
-                <select value={DAILY_WORK_CATEGORIES.includes(editData.dailyCategory) && editData.dailyCategory !== "OTHER" ? editData.dailyCategory : "__CUSTOM__"} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value === "__CUSTOM__" ? "" : e.target.value })} className="mt-1 w-full rounded border px-3 py-2" required>
+                <select value={dailyCategories.some((category) => category.code === editData.dailyCategory) ? editData.dailyCategory : "__CUSTOM__"} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value === "__CUSTOM__" ? "" : e.target.value })} className="mt-1 w-full rounded border px-3 py-2" required>
                   <option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>
-                  {DAILY_WORK_CATEGORIES.filter((category) => category !== "OTHER").map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                  {dailyCategories.filter((category) => category.isActive !== false || category.code === editData.dailyCategory).map((category) => <option key={category.code} value={category.code}>{dailyWorkLabel(category.code, lang, dailyCategories)}</option>)}
                   <option value="__CUSTOM__">{lang === "ja" ? "その他（入力）" : "Khác (tự nhập)"}</option>
                 </select>
-                {(!DAILY_WORK_CATEGORIES.includes(editData.dailyCategory) || editData.dailyCategory === "OTHER") && <input required maxLength={100} value={editData.dailyCategory === "OTHER" ? "" : editData.dailyCategory || ""} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value })} className="mt-2 w-full rounded border px-3 py-2" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}
+                {!dailyCategories.some((category) => category.code === editData.dailyCategory) && <input required maxLength={100} value={editData.dailyCategory === "OTHER" ? "" : editData.dailyCategory || ""} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value })} className="mt-2 w-full rounded border px-3 py-2" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}
               </label>
             ) : (
               <label className="text-sm">{lang === "ja" ? "製品" : "Sản phẩm"}
@@ -255,8 +257,8 @@ export default function TaskDetailPage() {
         <div>
           <label className="text-xs text-gray-500">{task.workType === "DAILY" ? (lang === "ja" ? "日常業務" : "Công việc hằng ngày") : (lang === "ja" ? "製品" : "Sản phẩm")}</label>
           <div className="flex items-center gap-2 mt-1">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? DAILY_WORK_COLOR : task.product?.color }} />
-            <span className="font-medium">{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang) : task.product?.name}</span>
+            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color }} />
+            <span className="font-medium">{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}</span>
           </div>
         </div>
         <div>

@@ -5,13 +5,15 @@ import { useSession } from "next-auth/react";
 import { hasPermission, type AppPermission } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/i18n";
-import { DAILY_WORK_CATEGORIES, dailyWorkLabel } from "@/lib/task-work-type";
+import { dailyWorkLabel } from "@/lib/task-work-type";
+import { useDailyWorkCategories } from "@/lib/use-daily-work-categories";
 
 export default function NewTaskPage() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const router = useRouter();
   const { lang } = useLang();
+  const dailyCategories = useDailyWorkCategories();
 
   const [products, setProducts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -132,7 +134,7 @@ export default function NewTaskPage() {
                 <select required value={form.dailyCategory} onChange={e => setForm({...form, dailyCategory: e.target.value})}
                   className="w-full border rounded px-3 py-2 text-sm">
                   <option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>
-                  {DAILY_WORK_CATEGORIES.filter((category) => category !== "OTHER").map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                  {dailyCategories.filter((category) => category.isActive !== false).map((category) => <option key={category.code} value={category.code}>{dailyWorkLabel(category.code, lang, dailyCategories)}</option>)}
                   <option value="__CUSTOM__">{lang === "ja" ? "その他（入力）" : "Khác (tự nhập)"}</option>
                 </select>
                 {form.dailyCategory === "__CUSTOM__" && <input required maxLength={100} value={form.dailyCategoryCustom} onChange={(e) => setForm({ ...form, dailyCategoryCustom: e.target.value })} className="mt-2 w-full rounded border px-3 py-2 text-sm" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}
