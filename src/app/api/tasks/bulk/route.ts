@@ -6,7 +6,6 @@ import { hasPermission } from "@/lib/permissions";
 
 const statuses = new Set(["PLANNED", "IN_PROGRESS", "WAITING", "COMPLETED", "CANCELLED"]);
 const priorities = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
-const dailyCategories = new Set(["MEETING", "TRAINING", "SUPPORT", "DOCUMENTATION", "REPORT", "OTHER"]);
 
 function parseDate(value: string): Date | null {
   if (!value.trim()) return null;
@@ -65,13 +64,13 @@ export async function POST(req: NextRequest) {
     const priority = (priorityValue || "MEDIUM").toUpperCase();
     const progress = progressValue === "" || progressValue === undefined ? (status === "COMPLETED" ? 100 : 0) : Number(progressValue);
     const workType = (workTypeValue || "PRODUCT").toUpperCase();
-    const dailyCategory = (dailyCategoryValue || "").toUpperCase();
+    const dailyCategory = dailyCategoryValue || "";
 
     let reason = "";
     if (!taskName || taskName.length > 200) reason = "Invalid task name";
     else if (workType !== "PRODUCT" && workType !== "DAILY") reason = `Invalid work type: ${workType}`;
     else if (workType === "PRODUCT" && !product) reason = `Product code not found: ${productCode || "(empty)"}`;
-    else if (workType === "DAILY" && !dailyCategories.has(dailyCategory)) reason = `Invalid daily category: ${dailyCategory || "(empty)"}`;
+    else if (workType === "DAILY" && (!dailyCategory || dailyCategory.length > 100)) reason = `Invalid daily category: ${dailyCategory || "(empty)"}`;
     else if (assigneeCode && employeeMatches.length !== 1) reason = employeeMatches.length > 1 ? `Employee code is duplicated: ${assigneeCode}` : `Employee code not found: ${assigneeCode}`;
     else if (!start || !end || end < start) reason = "Invalid planned date range";
     else if ((actualStartValue && !actualStart) || (actualEndValue && !actualEnd)) reason = "Invalid actual date";

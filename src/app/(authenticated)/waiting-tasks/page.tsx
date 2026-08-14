@@ -95,6 +95,7 @@ export default function WaitingTasksPage() {
   const [form, setForm] = useState({
     workType: "PRODUCT",
     dailyCategory: "",
+    dailyCategoryCustom: "",
     productId: "",
     taskNumber: "",
     taskName: "",
@@ -252,7 +253,7 @@ export default function WaitingTasksPage() {
     const response = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, plannedEndDate: form.plannedEndDate || null, assigneeId: "", status: "PLANNED" }),
+      body: JSON.stringify({ ...form, dailyCategory: form.workType === "DAILY" ? (form.dailyCategory === "__CUSTOM__" ? form.dailyCategoryCustom : form.dailyCategory) : null, plannedEndDate: form.plannedEndDate || null, assigneeId: "", status: "PLANNED" }),
     });
     const json = await response.json();
     setBusy(false);
@@ -260,7 +261,7 @@ export default function WaitingTasksPage() {
       setMessage(json.error?.message || (lang === "ja" ? "タスクを作成できません。" : "Không thể tạo task chờ."));
       return;
     }
-    setForm({ workType: "PRODUCT", dailyCategory: "", productId: "", taskNumber: "", taskName: "", description: "", plannedStartDate: "", plannedEndDate: "", priority: "MEDIUM", note: "" });
+    setForm({ workType: "PRODUCT", dailyCategory: "", dailyCategoryCustom: "", productId: "", taskNumber: "", taskName: "", description: "", plannedStartDate: "", plannedEndDate: "", priority: "MEDIUM", note: "" });
     setShowCreate(false);
     setMessage(lang === "ja" ? "未割り当てタスクを作成しました。" : "Đã tạo task chờ.");
     await loadTasks();
@@ -364,7 +365,7 @@ export default function WaitingTasksPage() {
           {form.workType === "PRODUCT" ? (
             <label className="space-y-1 text-sm"><span>{text.product} *</span><select required value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.product}...</option>{products.filter((product) => product.isActive).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
           ) : (
-            <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"} *</span><select required value={form.dailyCategory} onChange={(event) => setForm({ ...form, dailyCategory: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>{DAILY_WORK_CATEGORIES.map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}</select></label>
+            <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"} *</span><select required value={form.dailyCategory} onChange={(event) => setForm({ ...form, dailyCategory: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>{DAILY_WORK_CATEGORIES.filter((category) => category !== "OTHER").map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}<option value="__CUSTOM__">{lang === "ja" ? "その他（入力）" : "Khác (tự nhập)"}</option></select>{form.dailyCategory === "__CUSTOM__" && <input required maxLength={100} value={form.dailyCategoryCustom} onChange={(event) => setForm({ ...form, dailyCategoryCustom: event.target.value })} className="w-full rounded border px-3 py-2" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}</label>
           )}
           <label className="space-y-1 text-sm"><span>{text.suffix}</span><input value={form.taskNumber} onChange={(event) => setForm({ ...form, taskNumber: event.target.value })} pattern="[A-Za-z0-9]+([._-][A-Za-z0-9]+)*" maxLength={40} className="w-full rounded border px-3 py-2" placeholder="2.22.4" /></label>
           <label className="space-y-1 text-sm"><span>{text.taskName} *</span><input required maxLength={200} value={form.taskName} onChange={(event) => setForm({ ...form, taskName: event.target.value })} className="w-full rounded border px-3 py-2" /></label>

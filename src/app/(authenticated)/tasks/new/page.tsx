@@ -23,6 +23,7 @@ export default function NewTaskPage() {
     description: "",
     workType: "PRODUCT",
     dailyCategory: "",
+    dailyCategoryCustom: "",
     productId: "",
     taskNumber: "",
     assigneeId: "",
@@ -59,7 +60,11 @@ export default function NewTaskPage() {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, plannedEndDate: form.plannedEndDate || null }),
+      body: JSON.stringify({
+        ...form,
+        dailyCategory: form.workType === "DAILY" ? (form.dailyCategory === "__CUSTOM__" ? form.dailyCategoryCustom : form.dailyCategory) : null,
+        plannedEndDate: form.plannedEndDate || null,
+      }),
     });
     const json = await res.json();
     setLoading(false);
@@ -127,8 +132,10 @@ export default function NewTaskPage() {
                 <select required value={form.dailyCategory} onChange={e => setForm({...form, dailyCategory: e.target.value})}
                   className="w-full border rounded px-3 py-2 text-sm">
                   <option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>
-                  {DAILY_WORK_CATEGORIES.map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                  {DAILY_WORK_CATEGORIES.filter((category) => category !== "OTHER").map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                  <option value="__CUSTOM__">{lang === "ja" ? "その他（入力）" : "Khác (tự nhập)"}</option>
                 </select>
+                {form.dailyCategory === "__CUSTOM__" && <input required maxLength={100} value={form.dailyCategoryCustom} onChange={(e) => setForm({ ...form, dailyCategoryCustom: e.target.value })} className="mt-2 w-full rounded border px-3 py-2 text-sm" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}
               </>
             )}
           </div>

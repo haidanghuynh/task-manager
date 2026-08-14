@@ -28,6 +28,7 @@ model User {
   comments       TaskComment[]           @relation("CommentAuthor")
   assignmentsAs  TaskAssignmentHistory[] @relation("AssignedBy")
   commentDeletes TaskComment[]           @relation("CommentDeletedBy")
+  recordedNippoAbsences NippoAbsence[]   @relation("NippoAbsenceRecordedBy")
 
   @@index([deletedAt])
   @@map("users")
@@ -51,6 +52,8 @@ model Employee {
   tasks             Task[]                   @relation("TaskAssignee")
   assignmentHistory TaskAssignmentHistory[]  @relation("AssignmentEmployee")
   teamMemberships   TeamMember[]
+  nippoReports       NippoReport[]
+  nippoAbsences      NippoAbsence[]
 
   @@map("employees")
 }
@@ -68,6 +71,8 @@ model Team {
   lead     Employee?    @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
   members  TeamMember[]
   employees Employee[]
+  nippoReports NippoReport[]
+  nippoAbsences NippoAbsence[]
 
   @@map("teams")
 }
@@ -128,6 +133,7 @@ model Task {
   statusHistory     TaskStatusHistory[]
   changeLogs        TaskChangeLog[]
   comments          TaskComment[]
+  nippoItems        NippoItem[]
 
   @@index([productId])
   @@index([taskCode])
@@ -206,4 +212,70 @@ model TaskComment {
 
   @@index([taskId])
   @@map("task_comments")
+}
+
+model NippoReport {
+  id          String    @id @default(cuid())
+  reportDate  DateTime
+  employeeId  String
+  teamId      String?
+  status      String    @default("DRAFT") // DRAFT, SUBMITTED
+  summary     String?
+  blockers    String?
+  nextPlan    String?
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  team     Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  items    NippoItem[]
+
+  @@unique([employeeId, reportDate])
+  @@index([reportDate])
+  @@index([teamId, reportDate])
+  @@map("nippo_reports")
+}
+
+model NippoItem {
+  id             String   @id @default(cuid())
+  reportId       String
+  taskId         String?
+  title          String
+  workContent    String?
+  result         String?
+  hours          Float    @default(0)
+  progressBefore Int?
+  progressAfter  Int?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  report NippoReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  task   Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([reportId])
+  @@index([taskId])
+  @@map("nippo_items")
+}
+
+model NippoAbsence {
+  id           String   @id @default(cuid())
+  absenceDate  DateTime
+  teamId       String
+  employeeId   String
+  absenceType  String   @default("PAID") // PAID, SICK, PERSONAL, OTHER
+  period       String   @default("FULL") // FULL, HALF_AM, HALF_PM
+  reason       String?
+  recordedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  recordedBy User     @relation("NippoAbsenceRecordedBy", fields: [recordedById], references: [id])
+
+  @@unique([employeeId, absenceDate])
+  @@index([teamId, absenceDate])
+  @@map("nippo_absences")
 }

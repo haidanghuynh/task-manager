@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -15,6 +16,8 @@ import {
   LogOut,
   UserCog,
   Inbox,
+  ClipboardList,
+  ChevronDown,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -26,6 +29,12 @@ export function Sidebar() {
   const { lang, setLang, t } = useLang();
   const user = session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
   const role = user?.role;
+  const [reportsOpen, setReportsOpen] = useState(() => pathname.startsWith("/reports") || pathname.startsWith("/nippo"));
+
+  const reportItems = [
+    ...(hasPermission(user, "REPORT_VIEW") ? [{ href: "/reports/annual", label: t.common.annualReport, icon: FileBarChart }] : []),
+    ...(hasPermission(user, "NIPPO_VIEW") ? [{ href: "/nippo", label: t.common.nippo, icon: ClipboardList }] : []),
+  ];
 
   const navItems = [
     { href: "/dashboard", label: t.common.dashboard, icon: LayoutDashboard },
@@ -36,7 +45,7 @@ export function Sidebar() {
       : []),
     ...(hasPermission(user, "EMPLOYEE_VIEW") ? [{ href: "/employees", label: t.common.employees, icon: Users }] : []),
     ...(hasPermission(user, "TEAM_MANAGE") ? [{ href: "/teams", label: t.common.teams, icon: UsersRound }] : []),
-    ...(hasPermission(user, "REPORT_VIEW") ? [{ href: "/reports/annual", label: t.common.reports, icon: FileBarChart }] : []),
+    ...(reportItems.length > 0 ? [{ label: t.common.reports, icon: FileBarChart, children: reportItems }] : []),
     ...(role === "ADMIN"
       ? [{ href: "/accounts", label: t.common.accounts, icon: UserCog }]
       : []),
@@ -63,6 +72,26 @@ export function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const children = item.children;
+          if (children) {
+            const groupActive = children.some((child) => isActive(child.href));
+            return (
+              <div key={item.label} className="py-1">
+                <button type="button" aria-expanded={reportsOpen} onClick={() => setReportsOpen((current) => !current)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-gray-800 hover:text-white ${groupActive ? "bg-gray-800 text-white" : "text-gray-300"}`}>
+                  <Icon className="h-4 w-4" />
+                  <span className="flex-1">{item.label}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${reportsOpen ? "rotate-180" : ""}`} />
+                </button>
+                {reportsOpen && <div className="mt-1 ml-5 space-y-1 border-l border-gray-700 pl-3">
+                  {children.map((child) => {
+                    const ChildIcon = child.icon;
+                    const active = isActive(child.href);
+                    return <Link key={child.href} href={child.href} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}><ChildIcon className="h-4 w-4" />{child.label}</Link>;
+                  })}
+                </div>}
+              </div>
+            );
+          }
           const active = isActive(item.href);
           return (
             <Link

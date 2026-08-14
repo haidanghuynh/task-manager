@@ -195,10 +195,12 @@ export default function TaskDetailPage() {
             </label>
             {editData.workType === "DAILY" ? (
               <label className="text-sm">{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"}
-                <select value={editData.dailyCategory || ""} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value })} className="mt-1 w-full rounded border px-3 py-2" required>
+                <select value={DAILY_WORK_CATEGORIES.includes(editData.dailyCategory) && editData.dailyCategory !== "OTHER" ? editData.dailyCategory : "__CUSTOM__"} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value === "__CUSTOM__" ? "" : e.target.value })} className="mt-1 w-full rounded border px-3 py-2" required>
                   <option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>
-                  {DAILY_WORK_CATEGORIES.map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                  {DAILY_WORK_CATEGORIES.filter((category) => category !== "OTHER").map((category) => <option key={category} value={category}>{dailyWorkLabel(category, lang)}</option>)}
+                  <option value="__CUSTOM__">{lang === "ja" ? "その他（入力）" : "Khác (tự nhập)"}</option>
                 </select>
+                {(!DAILY_WORK_CATEGORIES.includes(editData.dailyCategory) || editData.dailyCategory === "OTHER") && <input required maxLength={100} value={editData.dailyCategory === "OTHER" ? "" : editData.dailyCategory || ""} onChange={(e) => setEditData({ ...editData, dailyCategory: e.target.value })} className="mt-2 w-full rounded border px-3 py-2" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}
               </label>
             ) : (
               <label className="text-sm">{lang === "ja" ? "製品" : "Sản phẩm"}

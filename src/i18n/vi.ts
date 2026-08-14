@@ -7,6 +7,8 @@ export const vi = {
     employees: "Nhân viên",
     teams: "Nhóm",
     reports: "Báo cáo",
+    annualReport: "Báo cáo năm",
+    nippo: "Báo cáo hàng ngày",
     accounts: "Tài khoản",
     settings: "Cài đặt",
     logout: "Đăng xuất",

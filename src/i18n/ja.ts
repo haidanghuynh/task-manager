@@ -7,6 +7,8 @@ export const ja = {
     employees: "社員",
     teams: "チーム",
     reports: "レポート",
+    annualReport: "年次レポート",
+    nippo: "日報",
     accounts: "アカウント",
     settings: "設定",
     logout: "ログアウト",

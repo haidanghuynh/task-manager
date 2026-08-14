@@ -96,6 +96,11 @@ textarea {
   background-image: linear-gradient(90deg, #172554, #000000);
 }
 
+:root[data-theme="dark"] .nippo-member-hours {
+  color: #ffffff;
+  text-shadow: 0 0 8px rgb(147 197 253 / 0.35);
+}
+
 :root[data-theme="dark"] .theme-logo-surface { background-color: #ffffff; }
 :root[data-theme="dark"] .theme-toggle .bg-white { background-color: #f8fafc; color: #111827; }
 :root[data-theme="dark"] .recharts-cartesian-grid line { stroke: #334155; }

@@ -152,16 +152,12 @@ export default function SchedulePage() {
     return days;
   }, [currentMonth, currentYear]);
 
-  const prevMonth = () => {
+  const selectMonth = (value: string) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    if (!match) return;
     setLoading(true);
     setLoadFailed(false);
-    setVisibleMonth((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1));
-  };
-
-  const nextMonth = () => {
-    setLoading(true);
-    setLoadFailed(false);
-    setVisibleMonth((value) => new Date(value.getFullYear(), value.getMonth() + 1, 1));
+    setVisibleMonth(new Date(Number(match[1]), Number(match[2]) - 1, 1));
   };
 
   const goToToday = () => {
@@ -323,15 +319,7 @@ export default function SchedulePage() {
             />
             <span>{lang === "ja" ? "完了・キャンセル済みを表示" : "Hiển thị task hoàn thành/đã hủy"}</span>
           </label>
-          <button data-i18n-ignore onClick={prevMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">
-            {lang === "ja" ? "← 前へ" : "← Trước"}
-          </button>
-          <span data-i18n-ignore className="text-sm font-semibold min-w-[120px] text-center">
-            {lang === "ja" ? `${currentYear}年${currentMonth + 1}月` : `Tháng ${currentMonth + 1}/${currentYear}`}
-          </span>
-          <button data-i18n-ignore onClick={nextMonth} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">
-            {lang === "ja" ? "次へ →" : "Tiếp →"}
-          </button>
+          <input data-i18n-ignore type="month" aria-label={lang === "ja" ? "月を選択" : "Chọn tháng"} value={monthStr} onChange={(event) => selectMonth(event.target.value)} className="rounded border px-3 py-1.5 text-sm" />
           <button data-i18n-ignore onClick={goToToday} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">
             {lang === "ja" ? "今日" : "Hôm nay"}
           </button>

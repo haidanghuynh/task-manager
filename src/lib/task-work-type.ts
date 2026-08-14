@@ -22,7 +22,7 @@ const DAILY_WORK_LABELS: Record<DailyWorkCategory, { vi: string; ja: string }> =
 
 export function dailyWorkLabel(category: string | null | undefined, lang: "vi" | "ja" = "vi") {
   if (!category || !(category in DAILY_WORK_LABELS)) {
-    return lang === "ja" ? "日常業務" : "Công việc hằng ngày";
+    return category || (lang === "ja" ? "日常業務" : "Công việc hằng ngày");
   }
   return DAILY_WORK_LABELS[category as DailyWorkCategory][lang];
 }

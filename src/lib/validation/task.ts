@@ -16,14 +16,7 @@ export const taskStatusSchema = z.enum([
 
 export const taskPrioritySchema = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 export const taskWorkTypeSchema = z.enum(["PRODUCT", "DAILY"]);
-export const dailyWorkCategorySchema = z.enum([
-  "MEETING",
-  "TRAINING",
-  "SUPPORT",
-  "DOCUMENTATION",
-  "REPORT",
-  "OTHER",
-]);
+export const dailyWorkCategorySchema = z.string().trim().min(1).max(100);
 
 export const createTaskSchema = z
   .object({
