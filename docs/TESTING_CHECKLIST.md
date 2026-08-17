@@ -44,6 +44,8 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
 - Completed tự 100%, mặc định khỏi lịch; completed/cancelled không unassign.
 - Import/export task/Employee round trip UTF-8.
 - Filter/group assignee/team; group/status đọc được dark.
+- "Tất cả trạng thái" + "Tất cả công việc" gồm cả PRODUCT và DAILY; chọn riêng PRODUCT/DAILY phải
+  lọc đúng ở list, group và export.
 
 ## Lịch
 
@@ -54,7 +56,8 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
   task không giờ chạy cả ngày, overlap có lane riêng, link mở đúng task; bộ lọc PRODUCT/DAILY/completed
   được giữ và Employee inactive không xuất hiện.
 - Bar chạm vạch cuối, không vỡ góc; sticky header/cột khi scroll; vùng đủ cao.
-- Mặc định theo team, collapse; legend Product/category động; includeCompleted đúng.
+- Mặc định theo team, collapse; legend Product/category động; includeCompleted đúng. Task hoàn thành
+  có màu xanh emerald, sọc, dấu `✓` và chú thích trạng thái ở cả lịch tháng/timeline giờ.
 
 ## Dashboard/report
 
@@ -62,9 +65,17 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
 - Annual report và DAILY count.
 - NIPPO draft/submit/edit/delete, task/dòng tự do, giờ/progress/previous progress.
 - Manager xem team và absence (reason optional); Admin overview mọi team; Employee không vượt scope.
+- DAILY chưa hoàn thành và đã qua ngày kết thúc không tăng số Quá hạn; PRODUCT cùng điều kiện vẫn tăng.
 
 ## Production
 
 - systemd, nginx, health URL tốt; login/ghi không chậm bất thường.
 - Journal không Prisma/env/permission error.
 - Backup timer active và backup pass `PRAGMA integrity_check`.
+
+## Lịch sử thao tác
+
+- Admin vào Cài đặt → Lịch sử thao tác (`/settings/audit-logs`), lọc theo từ khóa/hành động/đối tượng/ngày và chuyển trang đúng.
+- Manager/Employee không thấy menu audit; gọi trực tiếp API trả `403`.
+- Tạo/sửa/xóa/phân công task, account, employee, team, cấu hình và NIPPO sinh log sau khi thành công.
+- Chi tiết log không chứa password, passwordHash, token, cookie hoặc Authorization.

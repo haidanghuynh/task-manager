@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { checkOverlap } from "@/services/task.service";
 import { updateTaskSchema } from "@/lib/validation/task";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET(
   req: NextRequest,
@@ -263,6 +264,16 @@ export async function PATCH(
       return result;
     });
 
+    await recordAuditLog({
+      request: req,
+      actor: user,
+      action: "UPDATE",
+      entityType: "TASK",
+      entityId: updated.id,
+      entityLabel: updated.taskCode,
+      details: { changes },
+    });
+
     // Check overlaps if dates or assignee changed
     let overlaps: any[] = [];
     if (updateData.plannedStartDate || updateData.plannedEndDate) {
@@ -319,6 +330,15 @@ export async function DELETE(
   await prisma.task.update({
     where: { id },
     data: { deletedAt: new Date() },
+  });
+
+  await recordAuditLog({
+    request: req,
+    actor: user,
+    action: "DELETE",
+    entityType: "TASK",
+    entityId: id,
+    entityLabel: id,
   });
 
   return NextResponse.json({ success: true, message: "Task deleted successfully" });

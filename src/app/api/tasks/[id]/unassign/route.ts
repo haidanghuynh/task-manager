@@ -4,6 +4,7 @@ import { unassignTaskSchema } from "@/lib/validation/task";
 import { unassignTask } from "@/services/task.service";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { recordAuditLog } from "@/lib/audit-log";
 
 function error(status: number, code: string, message?: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -33,6 +34,7 @@ export async function POST(
 
   try {
     const result = await unassignTask(id, user.id, parsed.data.reason);
+    await recordAuditLog({ request: req, actor: user, action: "UNASSIGN", entityType: "TASK", entityId: id, details: { reason: parsed.data.reason || null } });
     return NextResponse.json({ success: true, data: result });
   } catch (caught: unknown) {
     const message = caught instanceof Error ? caught.message : "Unable to return task to waiting queue";

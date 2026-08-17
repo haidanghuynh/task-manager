@@ -3,8 +3,9 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { deleteEmployeesPermanently } from "@/services/employee.service";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
   if (user.role !== "ADMIN") {
@@ -16,6 +17,7 @@ export async function DELETE() {
     const ids = employees.map((employee) => employee.id);
     return deleteEmployeesPermanently(tx, ids, user.id);
   });
+  await recordAuditLog({ request: req, actor: user, action: "DELETE_ALL", entityType: "EMPLOYEE_BATCH", entityLabel: `${result.employeesDeleted} employees`, details: result });
   return NextResponse.json({ success: true, data: result, message: `Permanently deleted ${result.employeesDeleted} employees` });
 }
 
@@ -101,6 +103,8 @@ export async function POST(req: NextRequest) {
       skipped++;
     }
   }
+
+  await recordAuditLog({ request: req, actor: user, action: "IMPORT", entityType: "EMPLOYEE_BATCH", entityLabel: `${imported} employees`, details: { imported, skipped } });
 
   return NextResponse.json({
     success: true,

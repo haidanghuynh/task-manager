@@ -78,3 +78,8 @@ sửa đồng bộ mọi API.
 
 Thêm code/default/dependency; cập nhật account UI + nhãn vi/ja; guard sidebar/page/API; kiểm tra
 own/team scope; test Admin, Manager tùy chỉnh và Employee sau khi đổi quyền.
+
+## Lịch sử thao tác
+
+Trang `/settings/audit-logs` trong Cài đặt và API `/api/audit-logs` giới hạn cứng cho role `ADMIN`, không cấp qua danh sách quyền
+tùy chỉnh. Manager/Employee không nhìn thấy mục này trên sidebar và server trả `403` nếu gọi trực tiếp.

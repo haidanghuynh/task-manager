@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
   const { name, description, icon, leadId } = body;
   if (!name) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });
   const team = await prisma.team.create({ data: { name, description: description || null, icon: icon || "🐉", leadId: leadId || null }, include: { lead: true } });
+  await recordAuditLog({ request: req, actor: user, action: "CREATE", entityType: "TEAM", entityId: team.id, entityLabel: team.name, details: { leadId: team.leadId } });
   return NextResponse.json({ success: true, data: team }, { status: 201 });
 }
 
@@ -44,6 +46,7 @@ export async function PATCH(req: NextRequest) {
   if (icon !== undefined) data.icon = icon;
   if (leadId !== undefined) data.leadId = leadId || null;
   const team = await prisma.team.update({ where: { id }, data, include: { lead: true } });
+  await recordAuditLog({ request: req, actor: user, action: "UPDATE", entityType: "TEAM", entityId: team.id, entityLabel: team.name, details: data });
   return NextResponse.json({ success: true, data: team });
 }
 
@@ -54,6 +57,8 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });
+  const target = await prisma.team.findUnique({ where: { id }, select: { name: true } });
   await prisma.team.delete({ where: { id } });
+  await recordAuditLog({ request: req, actor: user, action: "DELETE", entityType: "TEAM", entityId: id, entityLabel: target?.name });
   return NextResponse.json({ success: true, message: "Team deleted" });
 }

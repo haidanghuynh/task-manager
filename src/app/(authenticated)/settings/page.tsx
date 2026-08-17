@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useLang } from "@/lib/i18n";
+import Link from "next/link";
+import { History } from "lucide-react";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -187,6 +189,20 @@ export default function SettingsPage() {
             <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Timezone</span><span className="font-medium">Asia/Ho_Chi_Minh</span></div>
             <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Sản phẩm</span><span className="font-medium">Zone / Gate / Hunter</span></div>
             <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Vai trò của bạn</span><span className="font-medium">{user?.role}</span></div>
+          </div>
+        </div>
+
+        {/* Audit logs */}
+        <div className="rounded-lg border bg-white p-6">
+          <div className="flex items-start gap-4">
+            <div className="rounded-lg bg-blue-50 p-3 text-blue-600"><History className="h-6 w-6" /></div>
+            <div className="flex-1">
+              <h3 data-i18n-ignore className="text-lg font-semibold text-gray-900">{lang === "ja" ? "操作履歴" : "Lịch sử thao tác"}</h3>
+              <p data-i18n-ignore className="mt-1 text-sm text-gray-500">{lang === "ja" ? "誰がいつどのデータを変更したか確認できます。" : "Kiểm tra ai đã thao tác gì, vào thời điểm nào và trên dữ liệu nào."}</p>
+              <Link data-i18n-ignore href="/settings/audit-logs" className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                {lang === "ja" ? "履歴を表示" : "Xem lịch sử"}
+              </Link>
+            </div>
           </div>
         </div>
       </div>

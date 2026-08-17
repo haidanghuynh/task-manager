@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
       if (teamId) await tx.teamMember.create({ data: { teamId, employeeId: created.id } });
       return created;
     });
+    await recordAuditLog({ request: req, actor: user, action: "CREATE", entityType: "EMPLOYEE", entityId: emp.id, entityLabel: `${emp.employeeCode} - ${emp.fullName}`, details: { teamId: emp.teamId } });
     return NextResponse.json({ success: true, data: emp }, { status: 201 });
   } catch (e: any) {
     if (e.code === "P2002") return NextResponse.json({ success: false, error: { code: "DUPLICATE", message: "Employee code or email already exists" } }, { status: 409 });

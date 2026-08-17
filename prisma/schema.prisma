@@ -29,6 +29,7 @@ model User {
   assignmentsAs  TaskAssignmentHistory[] @relation("AssignedBy")
   commentDeletes TaskComment[]           @relation("CommentDeletedBy")
   recordedNippoAbsences NippoAbsence[]   @relation("NippoAbsenceRecordedBy")
+  auditLogs        AuditLog[]             @relation("AuditActor")
 
   @@index([deletedAt])
   @@map("users")
@@ -295,4 +296,26 @@ model NippoAbsence {
   @@unique([employeeId, absenceDate])
   @@index([teamId, absenceDate])
   @@map("nippo_absences")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorId       String?
+  actorName     String
+  actorUsername String
+  action        String
+  entityType    String
+  entityId      String?
+  entityLabel   String?
+  details       String?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, action, createdAt])
+  @@map("audit_logs")
 }

@@ -3,6 +3,7 @@ import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { deleteEmployeesPermanently } from "@/services/employee.service";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -68,6 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     return updated;
   });
+  await recordAuditLog({ request: req, actor: user, action: data.isActive === true ? "ACTIVATE" : data.isActive === false ? "DEACTIVATE" : "UPDATE", entityType: "EMPLOYEE", entityId: emp.id, entityLabel: `${emp.employeeCode} - ${emp.fullName}`, details: data });
   return NextResponse.json({ success: true, data: emp });
 }
 
@@ -77,10 +79,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   if (user.role !== "ADMIN") return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
 
-  const employee = await prisma.employee.findUnique({ where: { id }, select: { id: true } });
+  const employee = await prisma.employee.findUnique({ where: { id }, select: { id: true, employeeCode: true, fullName: true } });
   if (!employee) return NextResponse.json({ success: false, error: { code: "NOT_FOUND" } }, { status: 404 });
 
   const result = await prisma.$transaction((tx) => deleteEmployeesPermanently(tx, [id], user.id));
+  await recordAuditLog({ request: req, actor: user, action: "DELETE", entityType: "EMPLOYEE", entityId: id, entityLabel: `${employee.employeeCode} - ${employee.fullName}` });
 
   return NextResponse.json({ success: true, data: result, message: "Employee permanently deleted" });
 }

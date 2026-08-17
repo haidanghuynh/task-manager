@@ -10,6 +10,7 @@ export const ja = {
     annualReport: "年次レポート",
     nippo: "日報",
     accounts: "アカウント",
+    auditLogs: "操作履歴",
     settings: "設定",
     logout: "ログアウト",
     save: "保存",

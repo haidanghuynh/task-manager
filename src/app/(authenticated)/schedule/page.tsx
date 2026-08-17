@@ -293,13 +293,16 @@ export default function SchedulePage() {
             >
               {startingTasks.map((task) => {
                 const duration = inclusiveDayCount(task.visibleStartKey, task.visibleEndKey);
+                const completed = task.status === "COMPLETED";
                 return <Link
                   key={task.id}
                   href={`/tasks/${task.id}`}
                   onClick={(event) => event.stopPropagation()}
                   className="absolute left-0 rounded-full transition-opacity hover:opacity-80"
                   style={{
-                    backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280",
+                    backgroundColor: completed ? "#059669" : task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280",
+                    backgroundImage: completed ? "repeating-linear-gradient(135deg, transparent 0 7px, rgba(255,255,255,0.2) 7px 11px)" : undefined,
+                    boxShadow: completed ? "inset 0 0 0 1px rgba(255,255,255,0.45)" : undefined,
                     width: `calc(${duration * 100}% + ${Math.max(0, duration - 1)}px)`,
                     minWidth: "100%",
                     maxWidth: "none",
@@ -308,7 +311,7 @@ export default function SchedulePage() {
                     zIndex: 10 + task.lane,
                   }}
                   title={`${task.taskCode}: ${task.taskName}\n${task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}${task.plannedStartTime && task.plannedEndTime ? `\n${task.plannedStartTime}–${task.plannedEndTime}` : ""}\n${task.status}`}
-                ><span className="block truncate px-1 text-[10px] font-medium leading-[22px] text-white">{task.workType === "DAILY" ? `${dailyWorkLabel(task.dailyCategory, lang, dailyCategories)}${task.plannedStartTime && task.plannedEndTime ? ` (${task.plannedStartTime}–${task.plannedEndTime})` : ""}` : task.product?.name}</span></Link>;
+                ><span className="block truncate px-1 text-[10px] font-medium leading-[22px] text-white">{completed ? "✓ " : ""}{task.workType === "DAILY" ? `${dailyWorkLabel(task.dailyCategory, lang, dailyCategories)}${task.plannedStartTime && task.plannedEndTime ? ` (${task.plannedStartTime}–${task.plannedEndTime})` : ""}` : task.product?.name}</span></Link>;
               })}
             </div>
           );
@@ -336,6 +339,7 @@ export default function SchedulePage() {
             {Array.from({ length: 24 }, (_, hour) => <div key={hour} className="border-r last:border-r-0" />)}
           </div>
           {positionedTasks.map((task) => {
+            const completed = task.status === "COMPLETED";
             const workLabel = task.workType === "DAILY"
               ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories)
               : task.product?.name;
@@ -353,12 +357,14 @@ export default function SchedulePage() {
                   minWidth: "32px",
                   height: "22px",
                   top: `${4 + task.lane * 28}px`,
-                  backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280",
+                  backgroundColor: completed ? "#059669" : task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280",
+                  backgroundImage: completed ? "repeating-linear-gradient(135deg, transparent 0 7px, rgba(255,255,255,0.2) 7px 11px)" : undefined,
+                  boxShadow: completed ? "inset 0 0 0 1px rgba(255,255,255,0.45)" : undefined,
                   zIndex: 10 + task.lane,
                 }}
                 title={`${task.taskCode}: ${task.taskName}\n${workLabel}\n${timeLabel}`}
               >
-                <span className="block truncate">{workLabel} · {timeLabel}</span>
+                <span className="block truncate">{completed ? "✓ " : ""}{workLabel} · {timeLabel}</span>
               </Link>
             );
           })}
@@ -636,6 +642,7 @@ export default function SchedulePage() {
             </div>
           ))}
           {dailyCategories.map((category) => <div key={`daily-${category.code}`} className="flex items-center gap-1"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: category.color }} />{dailyWorkLabel(category.code, lang, dailyCategories)}</div>)}
+          {showCompleted && <div data-i18n-ignore className="flex items-center gap-1"><div className="h-3 w-3 rounded-full bg-emerald-600" />✓ {lang === "ja" ? "完了" : "Đã hoàn thành"}</div>}
         </div>
       )}
     </div>

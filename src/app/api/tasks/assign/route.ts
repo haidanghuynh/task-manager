@@ -3,6 +3,7 @@ import { getCurrentUser, getVisibleEmployeeIds } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { checkOverlap } from "@/services/task.service";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 function error(status: number, code: string, message?: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -71,6 +72,8 @@ export async function POST(req: NextRequest) {
     const taskOverlaps = await checkOverlap(employeeId, task.plannedStartDate, task.plannedEndDate, task.id);
     if (taskOverlaps.length > 0) overlaps.push({ taskId: task.id, count: taskOverlaps.length });
   }
+
+  await recordAuditLog({ request: req, actor: user, action: "ASSIGN", entityType: "TASK_BATCH", entityLabel: `${tasks.length} tasks`, details: { taskIds, employeeId, reason: reason || null } });
 
   return NextResponse.json({ success: true, data: { assigned: tasks.length, overlaps } });
 }

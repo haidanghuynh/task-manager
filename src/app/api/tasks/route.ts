@@ -7,6 +7,7 @@ import { createTaskSchema } from "@/lib/validation/task";
 import { hasPermission } from "@/lib/permissions";
 import { getBusinessDateBoundary } from "@/lib/date";
 import { randomUUID } from "node:crypto";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -86,6 +87,7 @@ export async function GET(req: NextRequest) {
 
   if (overdueOnly) {
     where.status = { notIn: ["COMPLETED", "CANCELLED"] };
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), { workType: "PRODUCT" }];
     where.plannedEndDate = {
       ...(where.plannedEndDate as Prisma.DateTimeFilter | undefined),
       lt: getBusinessDateBoundary(),
@@ -350,6 +352,16 @@ export async function POST(req: NextRequest) {
         createdTasks.push(created);
       }
       return createdTasks;
+    });
+
+    await recordAuditLog({
+      request: req,
+      actor: user,
+      action: "CREATE",
+      entityType: "TASK",
+      entityId: tasks[0].id,
+      entityLabel: taskCode,
+      details: { taskIds: tasks.map((task) => task.id), taskName, workType, assigneeIds, assignmentGroupId },
     });
 
     return NextResponse.json({

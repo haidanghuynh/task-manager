@@ -110,6 +110,7 @@ function TasksPageContent() {
     if (filters.search) params.set("search", filters.search);
     if (filters.status) params.set("status", filters.status);
     if (filters.product) params.set("product", filters.product);
+    if (filters.workType) params.set("workType", filters.workType);
     if (filters.employee) params.set("employee", filters.employee);
     if (filters.priority) params.set("priority", filters.priority);
     if (filters.startDate) params.set("startDate", filters.startDate);
@@ -141,7 +142,6 @@ function TasksPageContent() {
     if (filters.search) params.set("search", filters.search);
     if (filters.status) params.set("status", filters.status);
     if (filters.product) params.set("product", filters.product);
-    if (filters.workType) params.set("workType", filters.workType);
     if (filters.workType) params.set("workType", filters.workType);
     if (filters.employee) params.set("employee", filters.employee);
     if (filters.priority) params.set("priority", filters.priority);

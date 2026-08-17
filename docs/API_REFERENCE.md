@@ -23,8 +23,10 @@ Mọi endpoint yêu cầu session trừ NextAuth. Thành công thường `{ succ
 GET filters: `page`, `pageSize` (max 100), `search`, `status`, `product`, `workType`, `employee`,
 `priority`, `startDate`, `endDate`, `teamId`, `assignment`, `groupBy`, `overdue`, `showDeleted`.
 `assignment=unassigned` cần `TASK_ASSIGN`; `groupBy=assignee|team` trả grouped thay pagination.
-Filter `overdue=true` chỉ lấy task chưa hoàn thành/hủy có ngày kết thúc trước ngày nghiệp vụ hiện
-tại; task đến hạn hôm nay chưa được xem là quá hạn.
+`status` và `workType` độc lập. Bỏ trống `status` nghĩa là mọi trạng thái và vẫn gồm cả PRODUCT/DAILY;
+bỏ trống `workType` nghĩa là cả hai loại công việc. Client list và export phải gửi cùng bộ lọc.
+Filter `overdue=true` chỉ lấy task sản phẩm chưa hoàn thành/hủy có ngày kết thúc trước ngày nghiệp vụ
+hiện tại; task đến hạn hôm nay và công việc hằng ngày chưa hoàn thành không được xem là quá hạn.
 
 POST: `taskName`, `description?`, `workType`, `dailyCategory?`, `productId?`, `taskNumber?`,
 `assigneeId?`, `assigneeIds?`, planned dates, `plannedStartTime?`, `plannedEndTime?`, status, priority, note. End trống dùng start. Suffix cho phép chữ/số,
@@ -105,3 +107,13 @@ assignee hiện tại, đếm completed/cancelled/on-time/late/days/reassignment
 Mine trả report/absence/candidate task giao với ngày (current/history) và previous progress. POST
 upsert report rồi thay toàn bộ items trong transaction; max 50 items, hours 0-24, progress 0-100.
 TaskId phải thuộc người báo cáo tại ngày đó. Absence upsert theo Employee + ngày.
+
+## Lịch sử thao tác (Admin)
+
+| Endpoint | Method | Quyền | Query |
+|---|---|---|---|
+| `/api/audit-logs` | GET | role `ADMIN` | `page`, `pageSize`, `search`, `action`, `entityType`, `from`, `to` |
+
+API trả log mới nhất trước, danh sách giá trị lọc và pagination. `from`/`to` dùng ngày theo múi giờ
+`+07:00`. `details` được parse từ JSON; password, hash, secret, token, authorization và cookie không
+được ghi vào log.

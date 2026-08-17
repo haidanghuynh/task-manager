@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function POST(
   req: NextRequest,
@@ -34,6 +35,8 @@ export async function POST(
     data: { taskId: id, authorId: user.id, content: content.trim() },
     include: { author: { select: { id: true, name: true } } },
   });
+
+  await recordAuditLog({ request: req, actor: user, action: "COMMENT", entityType: "TASK", entityId: id, entityLabel: task.taskCode, details: { commentId: comment.id } });
 
   return NextResponse.json({ success: true, data: comment }, { status: 201 });
 }

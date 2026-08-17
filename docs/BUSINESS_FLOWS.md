@@ -39,17 +39,20 @@ còn lại trong nhóm liên kết.
 ## Status/lịch
 
 Status: `PLANNED`, `IN_PROGRESS`, `WAITING`, `COMPLETED`, `CANCELLED`. Source không áp state
-machine cứng. COMPLETED tự 100% và actual end nếu thiếu. Task còn mở chỉ được tính quá hạn khi
+machine cứng. COMPLETED tự 100% và actual end nếu thiếu. Task sản phẩm còn mở chỉ được tính quá hạn khi
 ngày hiện tại theo `Asia/Ho_Chi_Minh` lớn hơn ngày kết thúc; trong toàn bộ ngày kết thúc task vẫn
 còn hạn.
 
 - `/tasks`: task đã giao, list/group assignee/group team.
+  Bộ lọc trạng thái và loại công việc độc lập: "Tất cả trạng thái" không loại DAILY; khi loại công
+  việc là "Tất cả công việc", kết quả gồm cả PRODUCT và DAILY ở mọi trạng thái được phép hiển thị.
 - `/waiting-tasks`: task chưa giao, table + timeline.
 - `/schedule`: task có assignee giao với tháng, mặc định theo team; nhiều overlap thành nhiều lane.
   Bấm tiêu đề ngày hoặc ô ngày mở timeline ngày: hàng vẫn theo nhóm/nhân viên, trục ngang đổi thành
   24 mốc giờ. Task có giờ bắt đầu ở đúng phút và thanh hiển thị bao gồm cả ô của giờ kết thúc (ví dụ
   `13:00–14:00` phủ ô 13 và 14); task không giờ chạy cả ngày. Nội dung tuân theo các bộ lọc đang bật.
-- Header có ngày/thứ; legend động. Completed/cancelled mặc định ẩn, có includeCompleted.
+- Header có ngày/thứ; legend động. Completed/cancelled mặc định ẩn, có includeCompleted. Khi bật,
+  task `COMPLETED` dùng thanh xanh emerald có sọc và dấu `✓` ở cả lịch tháng lẫn timeline theo giờ.
 
 ## Báo cáo hằng ngày
 

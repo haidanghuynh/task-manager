@@ -76,10 +76,12 @@ export function isOverdue(
   status: string,
   actualEnd?: Date | null,
   now = new Date(),
+  workType?: string,
 ): boolean {
   const plannedEndDate = getStoredDateBoundary(plannedEnd);
   if (actualEnd) return getBusinessDateBoundary(actualEnd) > plannedEndDate;
   if (status === "COMPLETED" || status === "CANCELLED") return false;
+  if (workType === "DAILY") return false;
   return plannedEndDate < getBusinessDateBoundary(now);
 }
 

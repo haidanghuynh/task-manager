@@ -4,6 +4,7 @@ import { reassignTaskSchema } from "@/lib/validation/task";
 import { reassignTask } from "@/services/task.service";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function POST(
   req: NextRequest,
@@ -43,6 +44,7 @@ export async function POST(
       user.id,
       parsed.data.reason,
     );
+    await recordAuditLog({ request: req, actor: user, action: "REASSIGN", entityType: "TASK", entityId: id, details: { employeeId: parsed.data.employeeId, reason: parsed.data.reason || null } });
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to reassign task";

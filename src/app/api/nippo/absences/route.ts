@@ -4,6 +4,7 @@ import { parseReportDate } from "@/lib/nippo";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { saveAbsenceSchema } from "@/lib/validation/nippo";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     create: { ...parsed.data, absenceDate: date, reason: parsed.data.reason || null, recordedById: user.id },
     update: { teamId: parsed.data.teamId, absenceType: parsed.data.absenceType, period: parsed.data.period, reason: parsed.data.reason || null, recordedById: user.id },
   });
+  await recordAuditLog({ request: req, actor: user, action: "UPSERT", entityType: "NIPPO_ABSENCE", entityId: absence.id, entityLabel: parsed.data.absenceDate, details: { employeeId: parsed.data.employeeId, absenceType: parsed.data.absenceType, period: parsed.data.period } });
   return NextResponse.json({ success: true, data: absence });
 }
 
@@ -35,5 +37,6 @@ export async function DELETE(req: NextRequest) {
   const absence = await prisma.nippoAbsence.findUnique({ where: { employeeId_absenceDate: { employeeId, absenceDate: range.start } } });
   if (!absence || (user.role === "EMPLOYEE" && absence.teamId !== user.teamId)) return NextResponse.json({ success: false, error: { code: "NOT_FOUND" } }, { status: 404 });
   await prisma.nippoAbsence.delete({ where: { id: absence.id } });
+  await recordAuditLog({ request: req, actor: user, action: "DELETE", entityType: "NIPPO_ABSENCE", entityId: absence.id, entityLabel: dateValue, details: { employeeId } });
   return NextResponse.json({ success: true });
 }

@@ -4,6 +4,7 @@ import { hasPermission } from "@/lib/permissions";
 import { parseReportDate } from "@/lib/nippo";
 import { prisma } from "@/lib/prisma";
 import { saveNippoSchema } from "@/lib/validation/nippo";
+import { recordAuditLog } from "@/lib/audit-log";
 
 const taskInclude = {
   product: { select: { id: true, name: true, code: true, color: true } },
@@ -218,6 +219,7 @@ export async function POST(req: NextRequest) {
     }
     return tx.nippoReport.findUnique({ where: { id: saved.id }, include: { items: { orderBy: { sortOrder: "asc" } } } });
   });
+  await recordAuditLog({ request: req, actor: user, action: report?.status === "SUBMITTED" ? "SUBMIT" : "SAVE_DRAFT", entityType: "NIPPO", entityId: report?.id, entityLabel: parsed.data.reportDate, details: { itemCount: parsed.data.items.length, totalHours: parsed.data.items.reduce((sum, item) => sum + item.hours, 0) } });
   return NextResponse.json({ success: true, data: report });
 }
 
@@ -232,5 +234,6 @@ export async function DELETE(req: NextRequest) {
   const report = await prisma.nippoReport.findUnique({ where: { employeeId_reportDate: { employeeId: user.employeeId, reportDate: range.start } } });
   if (!report) return NextResponse.json({ success: false, error: { code: "NOT_FOUND" } }, { status: 404 });
   await prisma.nippoReport.delete({ where: { id: report.id } });
+  await recordAuditLog({ request: req, actor: user, action: "DELETE", entityType: "NIPPO", entityId: report.id, entityLabel: dateValue });
   return NextResponse.json({ success: true });
 }

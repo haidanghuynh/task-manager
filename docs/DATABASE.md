@@ -82,3 +82,13 @@ npm run build
 Đọc SQL, commit schema + migration. SQLite migration có thể dựng bảng mới/copy/rename. Production
 backup rồi dùng `prisma migrate deploy`. Không chạy `migrate reset`, `db push --force-reset` hoặc
 seed trên production.
+
+## AuditLog
+
+`AuditLog` lưu snapshot tên/username của người thao tác, action, loại/id/nhãn đối tượng, chi tiết JSON,
+IP, User-Agent và thời gian. Quan hệ `actorId` dùng `onDelete: SetNull`, nên lịch sử còn nguyên khi tài
+khoản bị xóa. Helper `src/lib/audit-log.ts` loại các khóa nhạy cảm trước khi ghi và không làm thao tác
+nghiệp vụ thất bại nếu riêng việc ghi audit gặp lỗi.
+
+Migration tạo bảng: `20260817143000_add_audit_logs`. Khi triển khai production phải backup DB rồi chạy
+`npx prisma migrate deploy`; không seed hoặc reset database.

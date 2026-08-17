@@ -10,6 +10,7 @@ export const vi = {
     annualReport: "Báo cáo năm",
     nippo: "Báo cáo hàng ngày",
     accounts: "Tài khoản",
+    auditLogs: "Lịch sử thao tác",
     settings: "Cài đặt",
     logout: "Đăng xuất",
     save: "Lưu",

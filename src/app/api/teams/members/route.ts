@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
       await tx.employee.update({ where: { id: employeeId }, data: { teamId } });
       return created;
     });
+    await recordAuditLog({ request: req, actor: user, action: "ADD_MEMBER", entityType: "TEAM", entityId: teamId, details: { employeeId } });
     return NextResponse.json({ success: true, data: member }, { status: 201 });
   } catch (e: any) {
     if (e.code === "P2002") return NextResponse.json({ success: false, error: { code: "DUPLICATE", message: "Member already exists" } }, { status: 409 });
@@ -42,5 +44,6 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.teamMember.deleteMany({ where: { teamId, employeeId } });
   await prisma.employee.updateMany({ where: { id: employeeId, teamId }, data: { teamId: null } });
+  await recordAuditLog({ request: req, actor: user, action: "REMOVE_MEMBER", entityType: "TEAM", entityId: teamId, details: { employeeId } });
   return NextResponse.json({ success: true, message: "Member removed" });
 }

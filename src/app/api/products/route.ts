@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const product = await prisma.product.create({ data: { code: code.toUpperCase(), name, color: color || "#6B7280" } });
+    await recordAuditLog({ request: req, actor: user, action: "CREATE", entityType: "PRODUCT", entityId: product.id, entityLabel: product.code, details: { name: product.name, color: product.color } });
     return NextResponse.json({ success: true, data: product }, { status: 201 });
   } catch (e: any) {
     if (e.code === "P2002") return NextResponse.json({ success: false, error: { code: "DUPLICATE", message: "Product code already exists" } }, { status: 409 });
@@ -44,6 +46,7 @@ export async function PATCH(req: NextRequest) {
   if (isActive !== undefined) data.isActive = isActive;
 
   const product = await prisma.product.update({ where: { id }, data });
+  await recordAuditLog({ request: req, actor: user, action: isActive === true ? "ACTIVATE" : isActive === false ? "DEACTIVATE" : "UPDATE", entityType: "PRODUCT", entityId: product.id, entityLabel: product.code, details: data });
   return NextResponse.json({ success: true, data: product });
 }
 
@@ -57,13 +60,15 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "id required" } }, { status: 400 });
 
   // Check if product has tasks
-  const count = await prisma.task.count({ where: { productId: id } });
+  const [count, target] = await Promise.all([prisma.task.count({ where: { productId: id } }), prisma.product.findUnique({ where: { id }, select: { code: true } })]);
   if (count > 0) {
     // Soft deactivate
     await prisma.product.update({ where: { id }, data: { isActive: false } });
+    await recordAuditLog({ request: req, actor: user, action: "DEACTIVATE", entityType: "PRODUCT", entityId: id, entityLabel: target?.code, details: { reason: "HAS_EXISTING_TASKS" } });
     return NextResponse.json({ success: true, message: "Product deactivated (has existing tasks)" });
   }
 
   await prisma.product.delete({ where: { id } });
+  await recordAuditLog({ request: req, actor: user, action: "DELETE", entityType: "PRODUCT", entityId: id, entityLabel: target?.code });
   return NextResponse.json({ success: true, message: "Product deleted" });
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 const statuses = new Set(["PLANNED", "IN_PROGRESS", "WAITING", "COMPLETED", "CANCELLED"]);
 const priorities = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
@@ -134,10 +135,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  await recordAuditLog({ request: req, actor: user, action: "IMPORT", entityType: "TASK_BATCH", entityLabel: `${imported} tasks`, details: { imported, skipped: errors.length } });
   return NextResponse.json({ success: true, data: { imported, skipped: errors.length, errors: errors.slice(0, 50) } });
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
   if (user.role !== "ADMIN") {
@@ -146,5 +148,6 @@ export async function DELETE() {
 
   // Soft delete all tasks
   const result = await prisma.task.updateMany({ where: { deletedAt: null }, data: { deletedAt: new Date() } });
+  await recordAuditLog({ request: req, actor: user, action: "DELETE_ALL", entityType: "TASK_BATCH", entityLabel: `${result.count} tasks`, details: { count: result.count } });
   return NextResponse.json({ success: true, message: `Deleted ${result.count} tasks` });
 }

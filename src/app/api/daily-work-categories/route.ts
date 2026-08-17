@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
+import { recordAuditLog } from "@/lib/audit-log";
 
 const codePattern = /^[A-Z0-9][A-Z0-9_-]{0,49}$/;
 const colorPattern = /^#[0-9A-F]{6}$/i;
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
   if (!codePattern.test(code) || !nameVi || !nameJa || !colorPattern.test(color)) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });
   try {
     const category = await prisma.dailyWorkCategory.create({ data: { code, nameVi, nameJa, color } });
+    await recordAuditLog({ request: req, actor: user, action: "CREATE", entityType: "DAILY_CATEGORY", entityId: category.id, entityLabel: category.code, details: { nameVi, nameJa, color } });
     return NextResponse.json({ success: true, data: category }, { status: 201 });
   } catch {
     return NextResponse.json({ success: false, error: { code: "DUPLICATE" } }, { status: 409 });
@@ -45,6 +47,7 @@ export async function PATCH(req: NextRequest) {
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
   if ((data.nameVi !== undefined && !data.nameVi) || (data.nameJa !== undefined && !data.nameJa) || (data.color !== undefined && !colorPattern.test(data.color))) return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR" } }, { status: 400 });
   const category = await prisma.dailyWorkCategory.update({ where: { id }, data });
+  await recordAuditLog({ request: req, actor: user, action: data.isActive === true ? "ACTIVATE" : data.isActive === false ? "DEACTIVATE" : "UPDATE", entityType: "DAILY_CATEGORY", entityId: category.id, entityLabel: category.code, details: data });
   return NextResponse.json({ success: true, data: category });
 }
 
@@ -59,5 +62,6 @@ export async function DELETE(req: NextRequest) {
   const taskCount = await prisma.task.count({ where: { workType: "DAILY", dailyCategory: category.code } });
   if (taskCount > 0) await prisma.dailyWorkCategory.update({ where: { id }, data: { isActive: false } });
   else await prisma.dailyWorkCategory.delete({ where: { id } });
+  await recordAuditLog({ request: req, actor: user, action: taskCount > 0 ? "DEACTIVATE" : "DELETE", entityType: "DAILY_CATEGORY", entityId: id, entityLabel: category.code, details: taskCount > 0 ? { reason: "HAS_EXISTING_TASKS" } : undefined });
   return NextResponse.json({ success: true, data: { deactivated: taskCount > 0 } });
 }

@@ -39,10 +39,13 @@ nhật lại tài liệu trong cùng commit.
 - Manager có `DAILY_TASK_CREATE` được chọn nhiều người trong nhóm cho DAILY dù không có `TASK_ASSIGN`.
   Thiếu `TASK_ASSIGN` thì Manager phải chọn ít nhất một người, không được tạo DAILY chưa phân công.
 - Task chưa phân công chỉ ở `/waiting-tasks`; task có assignee mới vào lịch chính.
+- Ở `/tasks`, filter `status` và `workType` độc lập; status trống không được tự loại DAILY, workType
+  trống phải gồm PRODUCT + DAILY. List/group/export phải gửi cùng filter.
 - Lịch tháng có dialog timeline 24 giờ khi bấm tiêu đề/ô ngày; hàng giữ theo nhóm/nhân viên và thanh
   đặt theo phút. Phải dùng `visibleTasks` để giữ filter và chỉ đưa Employee active vào dialog.
-- `COMPLETED` đặt tiến độ 100%; mặc định completed/cancelled không hiện trên lịch. Task chỉ quá
-  hạn từ ngày kế tiếp sau `plannedEndDate`, không phải ngay trong ngày kết thúc.
+- Khi bật hiển thị completed, thanh `COMPLETED` dùng màu emerald + sọc + dấu `✓` ở cả hai chế độ lịch.
+- `COMPLETED` đặt tiến độ 100%; mặc định completed/cancelled không hiện trên lịch. Task sản phẩm chỉ
+  quá hạn từ ngày kế tiếp sau `plannedEndDate`; DAILY chưa hoàn thành không bao giờ báo quá hạn.
 - Mã task được phép trùng và sửa. Dạng sản phẩm là `<PRODUCT_CODE>` hoặc
   `<PRODUCT_CODE>-<phần tự nhập>`, ví dụ `GATE-2.22.4`.
 - Task `DAILY` cần `dailyCategory`, task `PRODUCT` cần Product. Category lưu dạng text không FK để
@@ -51,6 +54,8 @@ nhật lại tài liệu trong cùng commit.
   tự đồng bộ với số giờ NIPPO.
 - Mọi UI phải kiểm tra `vi`, `ja`, light và dark. Không dịch code, username, tên người/nhóm hoặc dữ
   liệu người dùng nhập.
+- Audit log chỉ Admin đọc từ Cài đặt tại `/settings/audit-logs`. Mutation quan trọng gọi `recordAuditLog()` sau khi thành
+  công; không ghi password/hash/token/cookie. Log lưu snapshot actor để còn đọc được sau khi xóa account.
 
 ## Quy trình tối thiểu
 

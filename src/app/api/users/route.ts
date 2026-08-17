@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { APP_ROLES, getCurrentUser, type AppRole } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { normalizePermissions, resolvePermissions } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 function error(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -72,6 +73,15 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({
       data: { name, username, passwordHash: await hash(password, 12), role, employeeId, permissions, isActive: true },
       select: { id: true, name: true, username: true, role: true, employeeId: true, permissions: true, isActive: true, isPrimaryAdmin: true },
+    });
+    await recordAuditLog({
+      request: req,
+      actor: currentUser,
+      action: "CREATE",
+      entityType: "ACCOUNT",
+      entityId: user.id,
+      entityLabel: user.username,
+      details: { name: user.name, role: user.role, employeeId: user.employeeId, permissions: user.permissions },
     });
     return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (caught: unknown) {

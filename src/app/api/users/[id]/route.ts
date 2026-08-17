@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { APP_ROLES, getCurrentUser, type AppRole } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { normalizePermissions } from "@/lib/permissions";
+import { recordAuditLog } from "@/lib/audit-log";
 
 function error(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -71,6 +72,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       return saved;
     });
+    await recordAuditLog({
+      request: req,
+      actor: currentUser,
+      action: hasActiveStateUpdate ? (isActive ? "ACTIVATE" : "DEACTIVATE") : "UPDATE",
+      entityType: "ACCOUNT",
+      entityId: updated.id,
+      entityLabel: updated.username,
+      details: { changedFields: Object.keys(body || {}), role: updated.role, employeeId: updated.employeeId, isActive: updated.isActive },
+    });
     return NextResponse.json({ success: true, data: updated });
   } catch (caught: unknown) {
     const code = (caught as { code?: string }).code;
@@ -80,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return error(401, "UNAUTHORIZED", "Unauthorized");
   if (currentUser.role !== "ADMIN") return error(403, "FORBIDDEN", "Admin only");
@@ -88,7 +98,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, isPrimaryAdmin: true, deletedAt: true },
+    select: { id: true, username: true, isPrimaryAdmin: true, deletedAt: true },
   });
   if (!target || target.deletedAt) return error(404, "NOT_FOUND", "Account not found");
   if (target.isPrimaryAdmin) {
@@ -106,6 +116,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       employeeId: null,
       deletedAt: new Date(),
     },
+  });
+
+  await recordAuditLog({
+    request: req,
+    actor: currentUser,
+    action: "DELETE",
+    entityType: "ACCOUNT",
+    entityId: target.id,
+    entityLabel: target.username,
   });
 
   return NextResponse.json({ success: true });
