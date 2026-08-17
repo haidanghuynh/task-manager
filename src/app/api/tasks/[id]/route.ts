@@ -57,8 +57,9 @@ export async function GET(
   }
 
   // Check permission
+  let visibleEmployeeIds: string[] | null = null;
   if (user.role === "EMPLOYEE") {
-    const visibleEmployeeIds = await getVisibleEmployeeIds(user);
+    visibleEmployeeIds = await getVisibleEmployeeIds(user);
     if (!task.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId)) {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
     }
@@ -67,7 +68,39 @@ export async function GET(
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
   }
 
-  return NextResponse.json({ success: true, data: task });
+  let assignmentGroup: Array<{
+    id: string;
+    taskCode: string;
+    status: string;
+    progress: number;
+    currentAssignee: { id: string; employeeCode: string; fullName: string; teamId: string | null } | null;
+  }> = [];
+  if (task.assignmentGroupId) {
+    let permittedAssigneeIds = visibleEmployeeIds;
+    if (user.role === "MANAGER") {
+      const teamEmployees = user.teamId
+        ? await prisma.employee.findMany({ where: { teamId: user.teamId, isActive: true }, select: { id: true } })
+        : [];
+      permittedAssigneeIds = teamEmployees.map((employee) => employee.id);
+    }
+    assignmentGroup = await prisma.task.findMany({
+      where: {
+        assignmentGroupId: task.assignmentGroupId,
+        deletedAt: null,
+        ...(permittedAssigneeIds ? { currentAssigneeId: { in: permittedAssigneeIds } } : {}),
+      },
+      select: {
+        id: true,
+        taskCode: true,
+        status: true,
+        progress: true,
+        currentAssignee: { select: { id: true, employeeCode: true, fullName: true, teamId: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  return NextResponse.json({ success: true, data: { ...task, assignmentGroup } });
 }
 
 export async function PATCH(
@@ -95,8 +128,10 @@ export async function PATCH(
   }
 
   const updatingOwnTask = task.currentAssigneeId === user.employeeId;
-  const canEditTask = hasPermission(user, "TASK_EDIT");
-  if (!canEditTask && !(updatingOwnTask && hasPermission(user, "TASK_UPDATE_OWN"))) {
+  const canFullyEditTask = task.workType === "DAILY"
+    ? hasPermission(user, "DAILY_TASK_EDIT")
+    : hasPermission(user, "TASK_EDIT");
+  if (!canFullyEditTask && !(updatingOwnTask && hasPermission(user, "TASK_UPDATE_OWN"))) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
   }
 
@@ -112,7 +147,7 @@ export async function PATCH(
     const employeeFields = new Set(["progress", "status", "actualStartDate", "actualEndDate", "note"]);
     const updateData: Prisma.TaskUncheckedUpdateInput = {};
     for (const [field, value] of Object.entries(parsed.data)) {
-      if (!canEditTask && !employeeFields.has(field)) continue;
+      if (!canFullyEditTask && !employeeFields.has(field)) continue;
       (updateData as Record<string, unknown>)[field] = value;
     }
 
@@ -131,8 +166,21 @@ export async function PATCH(
     }
 
     const finalWorkType = (updateData.workType as string | undefined) ?? task.workType;
+    if (finalWorkType !== task.workType) {
+      const canEditTargetType = finalWorkType === "DAILY"
+        ? hasPermission(user, "DAILY_TASK_EDIT")
+        : hasPermission(user, "TASK_EDIT");
+      if (!canFullyEditTask || !canEditTargetType) {
+        return NextResponse.json(
+          { success: false, error: { code: "FORBIDDEN", message: "Permission denied" } },
+          { status: 403 },
+        );
+      }
+    }
     const finalProductId = updateData.productId === undefined ? task.productId : updateData.productId;
     const finalDailyCategory = updateData.dailyCategory === undefined ? task.dailyCategory : updateData.dailyCategory;
+    const finalStartTime = updateData.plannedStartTime === undefined ? task.plannedStartTime : updateData.plannedStartTime;
+    const finalEndTime = updateData.plannedEndTime === undefined ? task.plannedEndTime : updateData.plannedEndTime;
 
     if (finalWorkType === "PRODUCT" && typeof finalProductId === "string") {
       const product = await prisma.product.findUnique({ where: { id: finalProductId } });
@@ -156,10 +204,32 @@ export async function PATCH(
         { status: 400 },
       );
     }
+    if (finalWorkType === "DAILY" && Boolean(finalStartTime) !== Boolean(finalEndTime)) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Both start and end time are required" } },
+        { status: 400 },
+      );
+    }
+    if (
+      finalWorkType === "DAILY"
+      && finalStartTime
+      && finalEndTime
+      && plannedStart.toDateString() === plannedEnd.toDateString()
+      && String(finalEndTime) < String(finalStartTime)
+    ) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "End time cannot be before start time" } },
+        { status: 400 },
+      );
+    }
     if (finalWorkType === "DAILY") updateData.productId = null;
-    if (finalWorkType === "PRODUCT") updateData.dailyCategory = null;
+    if (finalWorkType === "PRODUCT") {
+      updateData.dailyCategory = null;
+      updateData.plannedStartTime = null;
+      updateData.plannedEndTime = null;
+    }
 
-    const trackedFields = ["taskCode", "status", "progress", "priority", "plannedStartDate", "plannedEndDate", "actualEndDate", "workType", "dailyCategory", "productId"] as const;
+    const trackedFields = ["taskCode", "status", "progress", "priority", "plannedStartDate", "plannedEndDate", "plannedStartTime", "plannedEndTime", "actualEndDate", "workType", "dailyCategory", "productId"] as const;
     const changes = trackedFields.flatMap((field) => {
       const newValue = (updateData as Record<string, unknown>)[field];
       if (newValue === undefined) return [];
@@ -225,14 +295,22 @@ export async function DELETE(
 
   const { id } = await params;
 
-  if (!hasPermission(user, "TASK_DELETE")) {
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { currentAssigneeId: true, workType: true, deletedAt: true },
+  });
+  if (!task || task.deletedAt) {
+    return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
+  }
+
+  const deletePermission = task.workType === "DAILY" ? "DAILY_TASK_DELETE" : "TASK_DELETE";
+  if (!hasPermission(user, deletePermission)) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
   }
 
   if (user.role === "EMPLOYEE") {
-    const task = await prisma.task.findUnique({ where: { id }, select: { currentAssigneeId: true } });
     const visibleEmployeeIds = await getVisibleEmployeeIds(user);
-    if (!task?.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId)) {
+    if (!task.currentAssigneeId || !visibleEmployeeIds?.includes(task.currentAssigneeId)) {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
     }
   }

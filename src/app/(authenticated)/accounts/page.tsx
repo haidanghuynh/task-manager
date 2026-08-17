@@ -6,7 +6,7 @@ import { useLang } from "@/lib/i18n";
 import { APP_PERMISSIONS, DEFAULT_PERMISSIONS, withPermissionDependencies, type AppPermission } from "@/lib/permissions";
 
 type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
-type EmployeeOption = { id: string; employeeCode: string; fullName: string; user: { id: string } | null };
+type EmployeeOption = { id: string; employeeCode: string; fullName: string; isActive: boolean; user: { id: string } | null };
 type Account = {
   id: string; name: string; username: string; role: Role; employeeId: string | null;
   permissions: AppPermission[];
@@ -23,10 +23,10 @@ const copy = {
     passwordHint: "Ít nhất 8 ký tự", newPassword: "Mật khẩu mới (để trống nếu không đổi)",
     role: "Quyền", employee: "Nhân viên liên kết", selectEmployee: "Chọn nhân viên...",
     roleAdmin: "Quản trị viên", roleManager: "Quản lý", roleEmployee: "Nhân viên",
-    noEmployee: "Không liên kết", status: "Trạng thái", active: "Hoạt động", inactive: "Đã khóa",
+    noEmployee: "Không liên kết", status: "Trạng thái", active: "Hoạt động", inactive: "Vô hiệu hóa",
     create: "Tạo tài khoản", update: "Lưu thay đổi", cancel: "Hủy", edit: "Sửa",
-    lock: "Khóa", unlock: "Mở khóa", empty: "Chưa có tài khoản.",
-    confirmLock: "Khóa tài khoản này? Người dùng sẽ không thể đăng nhập.",
+    lock: "Vô hiệu hóa", unlock: "Kích hoạt", empty: "Chưa có tài khoản.",
+    confirmLock: "Vô hiệu hóa tài khoản này? Người dùng sẽ không thể đăng nhập và nhân viên liên kết sẽ bị ẩn khỏi các danh sách hoạt động. Dữ liệu cũ vẫn được giữ lại.",
     saved: "Đã cập nhật tài khoản.", created: "Đã tạo tài khoản.",
     genericError: "Không thể lưu tài khoản.",
     employeeRequired: "Tài khoản Quản lý và Nhân viên phải liên kết với một hồ sơ nhân viên.",
@@ -50,10 +50,10 @@ const copy = {
     passwordHint: "8文字以上", newPassword: "新しいパスワード（変更しない場合は空欄）",
     role: "権限", employee: "連携する社員", selectEmployee: "社員を選択...",
     roleAdmin: "管理者", roleManager: "マネージャー", roleEmployee: "社員",
-    noEmployee: "連携なし", status: "ステータス", active: "有効", inactive: "ロック中",
+    noEmployee: "連携なし", status: "ステータス", active: "有効", inactive: "無効",
     create: "アカウント作成", update: "変更を保存", cancel: "キャンセル", edit: "編集",
-    lock: "ロック", unlock: "ロック解除", empty: "アカウントがありません。",
-    confirmLock: "このアカウントをロックしますか？ログインできなくなります。",
+    lock: "無効化", unlock: "有効化", empty: "アカウントがありません。",
+    confirmLock: "このアカウントを無効にしますか？ログインできなくなり、連携社員は有効な一覧に表示されません。過去データは保持されます。",
     saved: "アカウントを更新しました。", created: "アカウントを作成しました。",
     genericError: "アカウントを保存できません。",
     employeeRequired: "マネージャーと社員のアカウントは社員情報との連携が必要です。",
@@ -73,9 +73,12 @@ const copy = {
 
 const permissionLabels: Record<AppPermission, { vi: string; ja: string }> = {
   TASK_VIEW: { vi: "Xem task của nhóm", ja: "チームのタスクを表示" },
-  TASK_CREATE: { vi: "Tạo task", ja: "タスク作成" },
-  TASK_EDIT: { vi: "Sửa task", ja: "タスク編集" },
-  TASK_DELETE: { vi: "Xóa task", ja: "タスク削除" },
+  TASK_CREATE: { vi: "Tạo task sản phẩm", ja: "製品タスクの作成" },
+  TASK_EDIT: { vi: "Sửa task sản phẩm", ja: "製品タスクの編集" },
+  TASK_DELETE: { vi: "Xóa task sản phẩm", ja: "製品タスクの削除" },
+  DAILY_TASK_CREATE: { vi: "Tạo công việc hằng ngày", ja: "日常業務の作成" },
+  DAILY_TASK_EDIT: { vi: "Sửa công việc hằng ngày", ja: "日常業務の編集" },
+  DAILY_TASK_DELETE: { vi: "Xóa công việc hằng ngày", ja: "日常業務の削除" },
   TASK_ASSIGN: { vi: "Phân công, chuyển và thu hồi task", ja: "タスクの割当・変更・回収" },
   TASK_IMPORT_EXPORT: { vi: "Import và export task", ja: "タスクのインポート・エクスポート" },
   TASK_UPDATE_OWN: { vi: "Cập nhật và bình luận task của mình", ja: "自分のタスク更新・コメント" },
@@ -131,7 +134,10 @@ export default function AccountsPage() {
   }, [isAdmin]);
 
   const employeeOptions = useMemo(
-    () => employees.filter((employee) => !employee.user || employee.id === editing?.employeeId),
+    () => employees.filter((employee) =>
+      (employee.isActive || employee.id === editing?.employeeId)
+      && (!employee.user || employee.id === editing?.employeeId),
+    ),
     [employees, editing],
   );
 
@@ -153,10 +159,14 @@ export default function AccountsPage() {
         return { ...current, permissions: withPermissionDependencies([...current.permissions, permission]) };
       }
       let permissions = current.permissions.filter((item) => item !== permission);
-      if (permission === "TASK_VIEW") permissions = permissions.filter((item) => !item.startsWith("TASK_"));
+      if (permission === "TASK_VIEW") {
+        permissions = permissions.filter((item) =>
+          !item.startsWith("TASK_") && !item.startsWith("DAILY_TASK_"),
+        );
+      }
       if (permission === "EMPLOYEE_VIEW") {
         permissions = permissions.filter((item) =>
-          !["EMPLOYEE_MANAGE", "EMPLOYEE_IMPORT_EXPORT", "TASK_CREATE", "TASK_ASSIGN", "TEAM_MANAGE"].includes(item),
+          !["EMPLOYEE_MANAGE", "EMPLOYEE_IMPORT_EXPORT", "TASK_CREATE", "DAILY_TASK_CREATE", "TASK_ASSIGN", "TEAM_MANAGE"].includes(item),
         );
       }
       return { ...current, permissions };

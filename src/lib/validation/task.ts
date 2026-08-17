@@ -6,6 +6,11 @@ const dateString = z
   .refine((value) => !Number.isNaN(new Date(value).getTime()), "Invalid date")
   .transform((value) => new Date(value));
 
+const timeString = z
+  .string()
+  .trim()
+  .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Time must use HH:mm format");
+
 export const taskStatusSchema = z.enum([
   "PLANNED",
   "IN_PROGRESS",
@@ -35,8 +40,11 @@ export const createTaskSchema = z
       .optional()
       .default(""),
     assigneeId: z.string().trim().optional().default(""),
+    assigneeIds: z.array(z.string().trim().min(1)).max(100).optional().default([]),
     plannedStartDate: dateString,
     plannedEndDate: dateString.optional().nullable(),
+    plannedStartTime: timeString.optional().nullable(),
+    plannedEndTime: timeString.optional().nullable(),
     status: taskStatusSchema.default("PLANNED"),
     priority: taskPrioritySchema.default("MEDIUM"),
     note: z.string().trim().max(5000).optional().nullable(),
@@ -51,6 +59,22 @@ export const createTaskSchema = z
     }
     if (data.workType === "DAILY" && !data.dailyCategory) {
       context.addIssue({ code: "custom", path: ["dailyCategory"], message: "Daily work category is required" });
+    }
+    if (data.workType === "PRODUCT" && (data.plannedStartTime || data.plannedEndTime)) {
+      context.addIssue({ code: "custom", path: ["plannedStartTime"], message: "Time is only supported for daily work" });
+    }
+    if (data.workType === "DAILY" && Boolean(data.plannedStartTime) !== Boolean(data.plannedEndTime)) {
+      context.addIssue({ code: "custom", path: ["plannedEndTime"], message: "Both start and end time are required" });
+    }
+    const endDate = data.plannedEndDate ?? data.plannedStartDate;
+    if (
+      data.workType === "DAILY"
+      && data.plannedStartTime
+      && data.plannedEndTime
+      && endDate.toDateString() === data.plannedStartDate.toDateString()
+      && data.plannedEndTime < data.plannedStartTime
+    ) {
+      context.addIssue({ code: "custom", path: ["plannedEndTime"], message: "End time cannot be before start time" });
     }
   });
 
@@ -69,6 +93,8 @@ export const updateTaskSchema = z.object({
   productId: z.string().trim().nullable().optional(),
   plannedStartDate: dateString.optional(),
   plannedEndDate: dateString.optional(),
+  plannedStartTime: timeString.nullable().optional(),
+  plannedEndTime: timeString.nullable().optional(),
   actualStartDate: dateString.nullable().optional(),
   actualEndDate: dateString.nullable().optional(),
   status: taskStatusSchema.optional(),

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { RankingChart, type RankingEntry } from "@/components/dashboard/ranking-chart";
 import { DashboardPeriodFilter, DashboardPeriodSummary, type DashboardPeriodMode } from "@/components/dashboard/period-filter";
 import { hasPermission } from "@/lib/permissions";
+import { getBusinessDateBoundary, isOverdue } from "@/lib/date";
 
 type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
@@ -84,6 +85,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const canViewTasks = hasPermission(user, "TASK_VIEW");
 
   const now = new Date();
+  const overdueBefore = getBusinessDateBoundary(now);
   const resolvedSearchParams = await searchParams;
   const period = resolveDashboardPeriod(resolvedSearchParams, now);
   const includeDailyInRanking = firstParam(resolvedSearchParams.includeDaily) === "true";
@@ -114,7 +116,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         where: {
           ...taskFilterBase,
           status: { notIn: ["COMPLETED", "CANCELLED"] },
-          plannedEndDate: { gte: period.start, lt: now },
+          plannedEndDate: { gte: period.start, lt: overdueBefore },
         },
       }),
     ]);
@@ -188,7 +190,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
         waiting: tasks.filter((task) => task.status === "WAITING").length,
         cancelled: tasks.filter((task) => task.status === "CANCELLED").length,
-        overdue: tasks.filter((task) => !["COMPLETED", "CANCELLED"].includes(task.status) && task.plannedEndDate < now).length,
+        overdue: tasks.filter((task) => isOverdue(task.plannedEndDate, task.status, null, now)).length,
         completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
       };
     };

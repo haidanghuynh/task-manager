@@ -18,7 +18,7 @@ export default auth(async (req) => {
     : null;
   const isLoggedIn = Boolean(
     databaseUser?.isActive &&
-    (databaseUser.role !== "EMPLOYEE" ||
+    ((databaseUser.role !== "EMPLOYEE" && databaseUser.role !== "MANAGER") ||
       (databaseUser.employeeId && databaseUser.employee?.isActive)),
   );
 

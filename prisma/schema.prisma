@@ -126,9 +126,12 @@ model Task {
   dailyCategory     String?   // MEETING, TRAINING, SUPPORT, DOCUMENTATION, REPORT, OTHER
   productId         String?
   currentAssigneeId String?
+  assignmentGroupId String?   // Links per-person copies created from one multi-assignee DAILY task
   createdById       String
   plannedStartDate  DateTime
   plannedEndDate    DateTime
+  plannedStartTime  String?
+  plannedEndTime    String?
   actualStartDate   DateTime?
   actualEndDate     DateTime?
   status            String    @default("PLANNED") // PLANNED, IN_PROGRESS, WAITING, COMPLETED, CANCELLED
@@ -151,6 +154,7 @@ model Task {
   @@index([productId])
   @@index([taskCode])
   @@index([currentAssigneeId])
+  @@index([assignmentGroupId])
   @@index([status])
   @@index([workType])
   @@index([plannedStartDate, plannedEndDate])

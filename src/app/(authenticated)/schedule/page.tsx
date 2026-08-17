@@ -13,10 +13,13 @@ type ScheduleTask = {
   currentAssigneeId: string | null;
   plannedStartDate: string;
   plannedEndDate: string;
+  plannedStartTime?: string | null;
+  plannedEndTime?: string | null;
   status: string;
   workType: "PRODUCT" | "DAILY";
   dailyCategory?: string | null;
   product?: { name: string; color: string } | null;
+  currentAssignee?: { id: string; employeeCode: string; fullName: string; isActive: boolean } | null;
 };
 
 type ScheduleEmployee = {
@@ -41,6 +44,12 @@ type ScheduleProduct = {
 type PositionedTask = ScheduleTask & {
   visibleStartKey: string;
   visibleEndKey: string;
+  lane: number;
+};
+
+type HourlyPositionedTask = ScheduleTask & {
+  startMinute: number;
+  endMinute: number;
   lane: number;
 };
 
@@ -79,6 +88,35 @@ function positionTasks(tasks: ScheduleTask[], monthStartKey: string, monthEndKey
     });
 }
 
+function timeToMinutes(value: string | null | undefined, fallback: number) {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) return fallback;
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function positionHourlyTasks(tasks: ScheduleTask[], dayKey: string): HourlyPositionedTask[] {
+  const laneEndMinutes: number[] = [];
+  return tasks
+    .map((task) => {
+      const startKey = apiDateKey(task.plannedStartDate);
+      const endKey = apiDateKey(task.plannedEndDate);
+      const startMinute = startKey === dayKey ? timeToMinutes(task.plannedStartTime, 0) : 0;
+      const rawEndMinute = endKey === dayKey ? timeToMinutes(task.plannedEndTime, 1440) : 1440;
+      const visualEndMinute = endKey === dayKey && task.plannedEndTime
+        ? Math.min(1440, rawEndMinute + 60)
+        : rawEndMinute;
+      const endMinute = visualEndMinute > startMinute ? visualEndMinute : Math.min(1440, startMinute + 60);
+      return { ...task, startMinute, endMinute };
+    })
+    .sort((left, right) => left.startMinute - right.startMinute || left.endMinute - right.endMinute)
+    .map((task) => {
+      let lane = laneEndMinutes.findIndex((endMinute) => endMinute <= task.startMinute);
+      if (lane === -1) lane = laneEndMinutes.length;
+      laneEndMinutes[lane] = task.endMinute;
+      return { ...task, lane };
+    });
+}
+
 export default function SchedulePage() {
   const { lang } = useLang();
   const dailyCategories = useDailyWorkCategories();
@@ -97,6 +135,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const stickyDaysRef = useRef<HTMLDivElement>(null);
 
   const currentMonth = visibleMonth.getMonth();
@@ -196,6 +235,21 @@ export default function SchedulePage() {
   const monthStartKey = `${monthStr}-01`;
   const monthEndKey = `${monthStr}-${String(daysInMonth.length).padStart(2, "0")}`;
   const unassignedTeamKey = "__unassigned__";
+  const activeEmployeeIds = new Set(employees.map((employee) => employee.id));
+  const selectedDayTasks = selectedDayKey
+    ? visibleTasks
+        .filter((task) =>
+          !!task.currentAssigneeId
+          && activeEmployeeIds.has(task.currentAssigneeId)
+          && apiDateKey(task.plannedStartDate) <= selectedDayKey
+          && apiDateKey(task.plannedEndDate) >= selectedDayKey,
+        )
+        .sort((left, right) =>
+          (left.plannedStartTime || "00:00").localeCompare(right.plannedStartTime || "00:00")
+          || left.taskName.localeCompare(right.taskName),
+        )
+    : [];
+  const selectedDay = selectedDayKey ? new Date(`${selectedDayKey}T00:00:00`) : null;
 
   const toggleTeam = (teamId: string) => {
     setCollapsedTeams((current) => {
@@ -231,12 +285,18 @@ export default function SchedulePage() {
           const dayKey = calendarDateKey(day);
           const startingTasks = positionedTasks.filter((task) => task.visibleStartKey === dayKey);
           return (
-            <div key={dayIndex} style={{ minHeight: `${rowHeight}px` }} className={`relative border-r ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`}>
+            <div
+              key={dayIndex}
+              style={{ minHeight: `${rowHeight}px` }}
+              onClick={() => setSelectedDayKey(dayKey)}
+              className={`relative cursor-pointer border-r ${isWeekend(day) ? "bg-gray-50" : ""} ${isToday(day) ? "bg-blue-50" : ""}`}
+            >
               {startingTasks.map((task) => {
                 const duration = inclusiveDayCount(task.visibleStartKey, task.visibleEndKey);
                 return <Link
                   key={task.id}
                   href={`/tasks/${task.id}`}
+                  onClick={(event) => event.stopPropagation()}
                   className="absolute left-0 rounded-full transition-opacity hover:opacity-80"
                   style={{
                     backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280",
@@ -247,12 +307,62 @@ export default function SchedulePage() {
                     top: `${4 + task.lane * 26}px`,
                     zIndex: 10 + task.lane,
                   }}
-                  title={`${task.taskCode}: ${task.taskName}\n${task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}\n${task.status}`}
-                ><span className="block truncate px-1 text-[10px] font-medium leading-[22px] text-white">{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}</span></Link>;
+                  title={`${task.taskCode}: ${task.taskName}\n${task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}${task.plannedStartTime && task.plannedEndTime ? `\n${task.plannedStartTime}–${task.plannedEndTime}` : ""}\n${task.status}`}
+                ><span className="block truncate px-1 text-[10px] font-medium leading-[22px] text-white">{task.workType === "DAILY" ? `${dailyWorkLabel(task.dailyCategory, lang, dailyCategories)}${task.plannedStartTime && task.plannedEndTime ? ` (${task.plannedStartTime}–${task.plannedEndTime})` : ""}` : task.product?.name}</span></Link>;
               })}
             </div>
           );
         })}
+      </div>
+    );
+  };
+
+  const renderHourlyEmployeeRow = (emp: ScheduleEmployee) => {
+    if (!selectedDayKey) return null;
+    const employeeTasks = selectedDayTasks.filter((task) => task.currentAssigneeId === emp.id);
+    const positionedTasks = positionHourlyTasks(employeeTasks, selectedDayKey);
+    const laneCount = Math.max(1, ...positionedTasks.map((task) => task.lane + 1));
+    const rowHeight = laneCount * 28 + 8;
+    return (
+      <div key={`hourly-${emp.id}`} className="grid border-b" style={{ gridTemplateColumns: "200px minmax(1152px, 1fr)" }}>
+        <div className="sticky left-0 z-20 flex items-center border-r bg-white px-3 py-2 shadow-[2px_0_4px_rgba(15,23,42,0.06)]" style={{ minHeight: `${rowHeight}px` }}>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-gray-900">{emp.fullName}</p>
+            <p className="text-xs text-gray-400">{emp.employeeCode}</p>
+          </div>
+        </div>
+        <div className="relative" style={{ minHeight: `${rowHeight}px` }}>
+          <div className="absolute inset-0 grid" style={{ gridTemplateColumns: "repeat(24, minmax(48px, 1fr))" }}>
+            {Array.from({ length: 24 }, (_, hour) => <div key={hour} className="border-r last:border-r-0" />)}
+          </div>
+          {positionedTasks.map((task) => {
+            const workLabel = task.workType === "DAILY"
+              ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories)
+              : task.product?.name;
+            const timeLabel = task.plannedStartTime && task.plannedEndTime
+              ? `${task.plannedStartTime}–${task.plannedEndTime}`
+              : (lang === "ja" ? "終日" : "Cả ngày");
+            return (
+              <Link
+                key={task.id}
+                href={`/tasks/${task.id}`}
+                className="absolute overflow-hidden rounded-full px-2 text-[10px] font-medium leading-[22px] text-white hover:opacity-80"
+                style={{
+                  left: `${(task.startMinute / 1440) * 100}%`,
+                  width: `${((task.endMinute - task.startMinute) / 1440) * 100}%`,
+                  minWidth: "32px",
+                  height: "22px",
+                  top: `${4 + task.lane * 28}px`,
+                  backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280",
+                  zIndex: 10 + task.lane,
+                }}
+                title={`${task.taskCode}: ${task.taskName}\n${workLabel}\n${timeLabel}`}
+              >
+                <span className="block truncate">{workLabel} · {timeLabel}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -356,8 +466,11 @@ export default function SchedulePage() {
                 }}
               >
               {daysInMonth.map((d, i) => (
-                <div
+                <button
+                  type="button"
                   key={i}
+                  onClick={() => setSelectedDayKey(calendarDateKey(d))}
+                  aria-label={lang === "ja" ? `${calendarDateKey(d)}の日別予定を表示` : `Xem lịch ngày ${calendarDateKey(d)}`}
                   className={`text-center py-2 text-xs font-medium border-r ${
                     isToday(d) ? "bg-blue-100 text-blue-700" : isWeekend(d) ? "bg-gray-100 text-gray-500" : "text-gray-600"
                   }`}
@@ -365,7 +478,7 @@ export default function SchedulePage() {
                   <div>{d.getDate()}</div>
                   <div data-i18n-ignore className="text-[9px] font-normal">{weekdayLabels[d.getDay()]}</div>
                   {isToday(d) && <div data-i18n-ignore className="text-[9px] text-blue-500">{lang === "ja" ? "今日" : "H.nay"}</div>}
-                </div>
+                </button>
               ))}
               </div>
             </div>
@@ -424,6 +537,91 @@ export default function SchedulePage() {
                 )}
               </>
             )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedDayKey && selectedDay && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="schedule-day-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedDayKey(null);
+          }}
+        >
+          <div className="max-h-[88vh] w-[96vw] overflow-hidden rounded-xl border bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <div>
+                <h3 id="schedule-day-title" className="font-semibold text-gray-900">
+                  {lang === "ja" ? "日別スケジュール" : "Lịch công việc trong ngày"}
+                </h3>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  {new Intl.DateTimeFormat(lang === "ja" ? "ja-JP" : "vi-VN", {
+                    weekday: "long", year: "numeric", month: "2-digit", day: "2-digit",
+                  }).format(selectedDay)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDayKey(null)}
+                className="rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-100"
+                aria-label={lang === "ja" ? "閉じる" : "Đóng"}
+              >
+                ×
+              </button>
+            </div>
+            <div className="max-h-[calc(88vh-82px)] overflow-auto">
+              {selectedDayTasks.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">
+                  {lang === "ja" ? "この日の予定はありません。" : "Không có công việc trong ngày này."}
+                </p>
+              ) : (
+                <div className="min-w-[1352px]">
+                  <div className="sticky top-0 z-30 grid border-b bg-white shadow-sm" style={{ gridTemplateColumns: "200px minmax(1152px, 1fr)" }}>
+                    <div className="sticky left-0 z-40 border-r bg-white px-3 py-2 text-sm font-medium text-gray-700">
+                      {viewMode === "teams"
+                        ? (lang === "ja" ? "チーム／社員" : "Nhóm / Nhân viên")
+                        : (lang === "ja" ? "社員" : "Nhân viên")}
+                    </div>
+                    <div className="grid" style={{ gridTemplateColumns: "repeat(24, minmax(48px, 1fr))" }}>
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <div key={hour} className="border-r py-2 text-center text-[10px] font-medium text-gray-500 last:border-r-0">
+                          {String(hour).padStart(2, "0")}:00
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {viewMode === "employees" ? employees.map(renderHourlyEmployeeRow) : (
+                    <>
+                      {groupedTeams.map((team) => (
+                        <div key={`hourly-team-${team.id}`}>
+                          <div className="grid border-b bg-gray-100" style={{ gridTemplateColumns: "200px minmax(1152px, 1fr)" }}>
+                            <div className="sticky left-0 z-20 flex items-center gap-2 border-r bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+                              <span>{team.icon}</span><span>{team.name}</span>
+                            </div>
+                            <div />
+                          </div>
+                          {team.employees.map(renderHourlyEmployeeRow)}
+                        </div>
+                      ))}
+                      {employeesWithoutTeam.length > 0 && (
+                        <div>
+                          <div className="grid border-b bg-gray-100" style={{ gridTemplateColumns: "200px minmax(1152px, 1fr)" }}>
+                            <div className="sticky left-0 z-20 border-r bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+                              {lang === "ja" ? "チーム未所属" : "Chưa có nhóm"}
+                            </div>
+                            <div />
+                          </div>
+                          {employeesWithoutTeam.map(renderHourlyEmployeeRow)}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -12,6 +12,30 @@ import {
   addDays,
 } from "date-fns";
 
+export const BUSINESS_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
+const businessDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Returns the business calendar date as UTC midnight. Planned task dates are
+ * stored as UTC-midnight values, so this avoids marking a task overdue during
+ * its due date.
+ */
+export function getBusinessDateBoundary(date = new Date()): Date {
+  const parts = businessDateFormatter.formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return new Date(`${value.year}-${value.month}-${value.day}T00:00:00.000Z`);
+}
+
+function getStoredDateBoundary(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
 export function formatDate(date: Date | string, fmt = "dd/MM/yyyy"): string {
   const d = typeof date === "string" ? parseISO(date) : date;
   return format(d, fmt);
@@ -47,10 +71,16 @@ export function addDay(date: Date, days: number): Date {
   return addDays(date, days);
 }
 
-export function isOverdue(plannedEnd: Date, status: string, actualEnd?: Date | null): boolean {
-  if (actualEnd) return isAfter(actualEnd, plannedEnd);
+export function isOverdue(
+  plannedEnd: Date,
+  status: string,
+  actualEnd?: Date | null,
+  now = new Date(),
+): boolean {
+  const plannedEndDate = getStoredDateBoundary(plannedEnd);
+  if (actualEnd) return getBusinessDateBoundary(actualEnd) > plannedEndDate;
   if (status === "COMPLETED" || status === "CANCELLED") return false;
-  return isBefore(plannedEnd, new Date());
+  return plannedEndDate < getBusinessDateBoundary(now);
 }
 
 export function isOnTime(actualEnd: Date, plannedEnd: Date): boolean {

@@ -14,6 +14,10 @@ export default function NewTaskPage() {
   const router = useRouter();
   const { lang } = useLang();
   const dailyCategories = useDailyWorkCategories();
+  const permissionUser = user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; employeeId?: string | null; teamId?: string | null; permissions?: AppPermission[] } | undefined;
+  const canCreateProduct = hasPermission(permissionUser, "TASK_CREATE");
+  const canCreateDaily = hasPermission(permissionUser, "DAILY_TASK_CREATE");
+  const canAssignTask = hasPermission(permissionUser, "TASK_ASSIGN");
 
   const [products, setProducts] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -29,24 +33,41 @@ export default function NewTaskPage() {
     productId: "",
     taskNumber: "",
     assigneeId: "",
+    assigneeIds: [] as string[],
     plannedStartDate: "",
     plannedEndDate: "",
+    plannedStartTime: "",
+    plannedEndTime: "",
     status: "PLANNED",
     priority: "MEDIUM",
     note: "",
   });
 
+  const effectiveWorkType = form.workType === "PRODUCT" && canCreateProduct
+    ? "PRODUCT"
+    : form.workType === "DAILY" && canCreateDaily
+      ? "DAILY"
+      : canCreateProduct ? "PRODUCT" : "DAILY";
   const selectedProduct = products.find((product) => product.id === form.productId);
-  const taskCodePrefix = form.workType === "DAILY"
+  const selfEmployee = employees.find((employee) => employee.id === permissionUser?.employeeId);
+  const effectiveAssigneeId = canAssignTask ? form.assigneeId : permissionUser?.employeeId || "";
+  const canSelectMultipleDaily = effectiveWorkType === "DAILY"
+    && (permissionUser?.role === "ADMIN" || (permissionUser?.role === "MANAGER" && canCreateDaily));
+  const managerTeamId = permissionUser?.teamId || selfEmployee?.teamId;
+  const dailyAssigneeOptions = employees.filter((employee) =>
+    employee.isActive
+    && (permissionUser?.role !== "MANAGER" || (!!managerTeamId && employee.teamId === managerTeamId)),
+  );
+  const taskCodePrefix = effectiveWorkType === "DAILY"
     ? "DAILY"
     : selectedProduct?.code || "PRODUCT";
 
   useEffect(() => {
     fetch("/api/products").then(r => r.json()).then(j => j.success && setProducts(j.data));
-    fetch("/api/employees").then(r => r.json()).then(j => j.success && setEmployees(j.data.employees));
+    fetch("/api/employees?pageSize=100").then(r => r.json()).then(j => j.success && setEmployees(j.data.employees));
   }, []);
 
-  if (!hasPermission(user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "TASK_CREATE")) {
+  if (!canCreateProduct && !canCreateDaily) {
     return (
       <div className="p-6">
         <p className="p-4 bg-red-50 text-red-700 rounded-lg">Bạn không có quyền tạo task.</p>
@@ -57,6 +78,23 @@ export default function NewTaskPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (canSelectMultipleDaily && !canAssignTask && form.assigneeIds.length === 0) {
+      setError(lang === "ja" ? "チームメンバーを1人以上選択してください。" : "Vui lòng chọn ít nhất một thành viên trong nhóm.");
+      return;
+    }
+    if (effectiveWorkType === "DAILY" && Boolean(form.plannedStartTime) !== Boolean(form.plannedEndTime)) {
+      setError(lang === "ja" ? "開始時刻と終了時刻の両方を入力してください。" : "Vui lòng nhập đủ giờ bắt đầu và giờ kết thúc.");
+      return;
+    }
+    if (
+      effectiveWorkType === "DAILY"
+      && form.plannedStartDate === (form.plannedEndDate || form.plannedStartDate)
+      && form.plannedStartTime
+      && form.plannedEndTime < form.plannedStartTime
+    ) {
+      setError(lang === "ja" ? "終了時刻は開始時刻より前にできません。" : "Giờ kết thúc không được trước giờ bắt đầu.");
+      return;
+    }
     setLoading(true);
 
     const res = await fetch("/api/tasks", {
@@ -64,8 +102,13 @@ export default function NewTaskPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        dailyCategory: form.workType === "DAILY" ? (form.dailyCategory === "__CUSTOM__" ? form.dailyCategoryCustom : form.dailyCategory) : null,
+        workType: effectiveWorkType,
+        assigneeId: canSelectMultipleDaily ? "" : effectiveAssigneeId,
+        assigneeIds: canSelectMultipleDaily ? form.assigneeIds : [],
+        dailyCategory: effectiveWorkType === "DAILY" ? (form.dailyCategory === "__CUSTOM__" ? form.dailyCategoryCustom : form.dailyCategory) : null,
         plannedEndDate: form.plannedEndDate || null,
+        plannedStartTime: effectiveWorkType === "DAILY" ? form.plannedStartTime || null : null,
+        plannedEndTime: effectiveWorkType === "DAILY" ? form.plannedEndTime || null : null,
       }),
     });
     const json = await res.json();
@@ -75,7 +118,16 @@ export default function NewTaskPage() {
       if (json.data.overlaps?.length > 0) {
         alert(`⚠️ Task bị trùng lịch với ${json.data.overlaps.length} task khác! Vẫn tạo thành công.`);
       }
-      router.push(form.assigneeId ? `/tasks/${json.data.task.id}` : "/waiting-tasks");
+      const createdTasks = json.data.tasks || [json.data.task];
+      if (createdTasks.length > 1) {
+        alert(lang === "ja"
+          ? `${createdTasks.length}人分の連携タスクを作成しました。`
+          : `Đã tạo công việc liên kết cho ${createdTasks.length} người.`);
+        router.push("/tasks");
+      } else {
+        const hasAssignee = canSelectMultipleDaily ? form.assigneeIds.length > 0 : !!effectiveAssigneeId;
+        router.push(hasAssignee ? `/tasks/${json.data.task.id}` : "/waiting-tasks");
+      }
     } else {
       setError(
         json.error?.code === "TASK_CODE_EXISTS" && lang === "ja"
@@ -95,12 +147,12 @@ export default function NewTaskPage() {
             {lang === "ja" ? "業務タイプ *" : "Loại công việc *"}
           </label>
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
-            <button type="button" onClick={() => setForm({ ...form, workType: "PRODUCT", dailyCategory: "" })}
-              className={`rounded-md px-3 py-2 text-sm ${form.workType === "PRODUCT" ? "bg-white font-medium text-blue-700 shadow-sm" : "text-gray-600"}`}>
+            <button type="button" disabled={!canCreateProduct} onClick={() => setForm({ ...form, workType: "PRODUCT", dailyCategory: "", assigneeIds: [], plannedStartTime: "", plannedEndTime: "" })}
+              className={`rounded-md px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${effectiveWorkType === "PRODUCT" ? "bg-white font-medium text-blue-700 shadow-sm" : "text-gray-600"}`}>
               {lang === "ja" ? "製品タスク" : "Task sản phẩm"}
             </button>
-            <button type="button" onClick={() => setForm({ ...form, workType: "DAILY", productId: "" })}
-              className={`rounded-md px-3 py-2 text-sm ${form.workType === "DAILY" ? "bg-white font-medium text-purple-700 shadow-sm" : "text-gray-600"}`}>
+            <button type="button" disabled={!canCreateDaily} onClick={() => setForm({ ...form, workType: "DAILY", productId: "", assigneeId: "" })}
+              className={`rounded-md px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${effectiveWorkType === "DAILY" ? "bg-white font-medium text-purple-700 shadow-sm" : "text-gray-600"}`}>
               {lang === "ja" ? "日常業務" : "Công việc hằng ngày"}
             </button>
           </div>
@@ -119,7 +171,7 @@ export default function NewTaskPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            {form.workType === "PRODUCT" ? (
+            {effectiveWorkType === "PRODUCT" ? (
               <>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{lang === "ja" ? "製品 *" : "Sản phẩm *"}</label>
                 <select required value={form.productId} onChange={e => setForm({...form, productId: e.target.value})}
@@ -145,17 +197,73 @@ export default function NewTaskPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {lang === "ja" ? "担当者（任意）" : "Người phụ trách (không bắt buộc)"}
             </label>
-            <select value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})}
-              className="w-full border rounded px-3 py-2 text-sm">
-              <option value="">{lang === "ja" ? "未割り当てのまま受け付ける" : "Để trống — chờ phân công"}</option>
-              {employees.filter((e: any) => e.isActive).map((e: any) => <option key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</option>)}
-            </select>
+            {canSelectMultipleDaily ? (
+              <div className="rounded-lg border bg-white">
+                <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+                  <span className="text-xs text-gray-500">
+                    {lang === "ja" ? `${form.assigneeIds.length}人選択` : `Đã chọn ${form.assigneeIds.length} người`}
+                  </span>
+                  <div className="flex gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, assigneeIds: dailyAssigneeOptions.map((employee) => employee.id) })}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {lang === "ja" ? "すべて選択" : "Chọn tất cả"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, assigneeIds: [] })}
+                      className="text-gray-500 hover:underline"
+                    >
+                      {lang === "ja" ? "選択解除" : "Bỏ chọn"}
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-52 space-y-1 overflow-y-auto p-2">
+                  {dailyAssigneeOptions.map((employee) => (
+                    <label key={employee.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={form.assigneeIds.includes(employee.id)}
+                        onChange={(event) => setForm({
+                          ...form,
+                          assigneeIds: event.target.checked
+                            ? [...form.assigneeIds, employee.id]
+                            : form.assigneeIds.filter((id) => id !== employee.id),
+                        })}
+                      />
+                      <span>{employee.fullName} ({employee.employeeCode})</span>
+                    </label>
+                  ))}
+                  {dailyAssigneeOptions.length === 0 && (
+                    <p className="px-2 py-3 text-sm text-amber-700">
+                      {permissionUser?.role === "MANAGER"
+                        ? (lang === "ja" ? "所属チームに有効なメンバーがいません。" : "Không có thành viên active trong nhóm của quản trị viên.")
+                        : (lang === "ja" ? "有効な従業員がいません。" : "Không có nhân viên active.")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : canAssignTask ? (
+              <select value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})}
+                className="w-full border rounded px-3 py-2 text-sm">
+                <option value="">{lang === "ja" ? "未割り当てのまま受け付ける" : "Để trống — chờ phân công"}</option>
+                {employees.filter((e: any) => e.isActive).map((e: any) => <option key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</option>)}
+              </select>
+            ) : (
+              <div className="rounded border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {selfEmployee ? `${selfEmployee.fullName} (${selfEmployee.employeeCode})` : (lang === "ja" ? "自分に割り当て" : "Phân công cho chính mình")}
+              </div>
+            )}
           </div>
         </div>
 
-        {!form.assigneeId && (
+        {(canAssignTask || canSelectMultipleDaily) && (canSelectMultipleDaily ? form.assigneeIds.length === 0 : !form.assigneeId) && (
           <p className="rounded bg-amber-50 p-3 text-sm text-amber-700">
-            {lang === "ja" ? "このタスクは未割り当てタスク一覧に保存され、後で担当者を割り当てます。" : "Task sẽ được lưu vào danh sách chờ và phân công sau."}
+            {canSelectMultipleDaily && !canAssignTask
+              ? (lang === "ja" ? "チームメンバーを1人以上選択してください。" : "Vui lòng chọn ít nhất một thành viên trong nhóm.")
+              : (lang === "ja" ? "このタスクは未割り当てタスク一覧に保存され、後で担当者を割り当てます。" : "Task sẽ được lưu vào danh sách chờ và phân công sau.")}
           </p>
         )}
 
@@ -209,6 +317,36 @@ export default function NewTaskPage() {
             </select>
           </div>
         </div>
+
+        {effectiveWorkType === "DAILY" && (
+          <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === "ja" ? "開始時刻（任意）" : "Giờ bắt đầu (không bắt buộc)"}
+              </label>
+              <input
+                type="time"
+                value={form.plannedStartTime}
+                onChange={(event) => setForm({ ...form, plannedStartTime: event.target.value })}
+                className="w-full rounded border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === "ja" ? "終了時刻（任意）" : "Giờ kết thúc (không bắt buộc)"}
+              </label>
+              <input
+                type="time"
+                value={form.plannedEndTime}
+                onChange={(event) => setForm({ ...form, plannedEndTime: event.target.value })}
+                className="w-full rounded border px-3 py-2 text-sm"
+              />
+            </div>
+            <p className="col-span-2 text-xs text-gray-500">
+              {lang === "ja" ? "時刻を設定する場合は、開始と終了の両方を入力してください。" : "Nếu chọn thời gian, cần nhập đủ cả giờ bắt đầu và giờ kết thúc."}
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Độ ưu tiên</label>

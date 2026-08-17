@@ -75,11 +75,28 @@ function TasksPageContent() {
     overdue: searchParams.get("overdue") === "true",
   }));
 
-  const canCreate = hasPermission(user, "TASK_CREATE");
-  const canEdit = hasPermission(user, "TASK_EDIT");
-  const canDelete = hasPermission(user, "TASK_DELETE");
+  const canCreateProduct = hasPermission(user, "TASK_CREATE");
+  const canCreateDaily = hasPermission(user, "DAILY_TASK_CREATE");
+  const canEditProduct = hasPermission(user, "TASK_EDIT");
+  const canEditDaily = hasPermission(user, "DAILY_TASK_EDIT");
+  const canDeleteProduct = hasPermission(user, "TASK_DELETE");
+  const canDeleteDaily = hasPermission(user, "DAILY_TASK_DELETE");
   const canImportExport = hasPermission(user, "TASK_IMPORT_EXPORT");
   const isAdmin = user?.role === "ADMIN";
+
+  function assigneeName(employee: any): string {
+    if (!employee) return lang === "ja" ? "未割り当て" : "Chờ phân công";
+    if (employee.isActive === false) return lang === "ja" ? "無効な社員" : "Nhân viên đã vô hiệu hóa";
+    return employee.fullName;
+  }
+
+  function assigneeCode(employee: any): string {
+    return employee?.isActive === false ? "" : employee?.employeeCode || "";
+  }
+
+  function plannedDate(value: unknown, time?: string | null): string {
+    return `${formatDate(value as string)}${time ? ` ${time}` : ""}`;
+  }
 
   useEffect(() => { fetchTasks(); }, [page, filters, viewMode]);
   useEffect(() => { fetch("/api/teams").then(r => r.json()).then(j => j.success && setTeams(j.data)); }, []);
@@ -152,11 +169,12 @@ function TasksPageContent() {
       currentPage++;
     } while (currentPage <= totalPages);
 
-    const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note", "workType", "dailyCategory"];
+    const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note", "workType", "dailyCategory", "plannedStartTime", "plannedEndTime"];
     const rows = exported.map((task) => [
       task.taskCode, task.taskName, task.description, task.product?.code,
-      task.currentAssignee?.employeeCode, csvDate(task.plannedStartDate), csvDate(task.plannedEndDate),
+      assigneeCode(task.currentAssignee), csvDate(task.plannedStartDate), csvDate(task.plannedEndDate),
       csvDate(task.actualStartDate), csvDate(task.actualEndDate), task.status, task.progress, task.priority, task.note, task.workType, task.dailyCategory,
+      task.plannedStartTime, task.plannedEndTime,
     ]);
     const csv = [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
     const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
@@ -211,6 +229,8 @@ function TasksPageContent() {
   const resetFilters = () => setFilters({ search: "", status: "", product: "", workType: "", priority: "", employee: "", teamId: "", startDate: "", endDate: "", overdue: false });
   const workColor = (task: any) => task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280";
   const workName = (task: any) => task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name;
+  const canEditTask = (task: any) => task.workType === "DAILY" ? canEditDaily : canEditProduct;
+  const canDeleteTask = (task: any) => task.workType === "DAILY" ? canDeleteDaily : canDeleteProduct;
 
   return (
     <div className="p-6 space-y-4">
@@ -222,9 +242,9 @@ function TasksPageContent() {
             <button onClick={() => setViewMode("assignee")} className={`px-3 py-1 rounded text-xs ${viewMode === "assignee" ? "bg-white shadow font-medium" : "text-gray-500"}`}>👤 Theo người</button>
             <button onClick={() => setViewMode("team")} className={`px-3 py-1 rounded text-xs ${viewMode === "team" ? "bg-white shadow font-medium" : "text-gray-500"}`}>🏢 Theo nhóm</button>
           </div>
-          {(canCreate || canImportExport || isAdmin) && (
+          {(canCreateProduct || canCreateDaily || canImportExport || isAdmin) && (
             <div className="flex flex-wrap gap-2">
-              {canCreate && <Link href="/tasks/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">+ Tạo task mới</Link>}
+              {(canCreateProduct || canCreateDaily) && <Link href="/tasks/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">+ Tạo task mới</Link>}
               {canImportExport && <label className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 cursor-pointer">
                 📥 {lang === "ja" ? "CSVインポート" : "Import CSV"}
                 <input type="file" accept=".csv,text/csv" className="hidden" onChange={async (event) => {
@@ -311,11 +331,11 @@ function TasksPageContent() {
                   <div key={assignee.employee?.id || "unassigned"} className="px-4 py-3 hover:bg-gray-50">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                        {assignee.employee?.fullName?.charAt(0) || "?"}
+                        {assigneeName(assignee.employee).charAt(0) || "?"}
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-sm text-gray-900">{assignee.employee?.fullName || "Chưa phân công"}</p>
-                        <p className="text-xs text-gray-400">{assignee.employee?.employeeCode}</p>
+                        <p className="font-semibold text-sm text-gray-900">{assigneeName(assignee.employee)}</p>
+                        <p className="text-xs text-gray-400">{assigneeCode(assignee.employee)}</p>
                       </div>
                       <div className="flex gap-1.5 text-[11px]">
                         <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{assignee.count} tasks</span>
@@ -331,10 +351,10 @@ function TasksPageContent() {
                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: workColor(task) }} />
                           <Link href={`/tasks/${task.id}`} className="text-sm text-blue-600 hover:underline flex-1 truncate">{task.taskCode}: {task.taskName}</Link>
                           <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${STATUS_COLORS[task.status as TaskStatus]}`}>{STATUS_LABELS[task.status as TaskStatus]}</span>
-                          <span className="text-[11px] text-gray-400">{formatDate(task.plannedStartDate)} → {formatDate(task.plannedEndDate)}</span>
+                          <span className="text-[11px] text-gray-400">{plannedDate(task.plannedStartDate, task.plannedStartTime)} → {plannedDate(task.plannedEndDate, task.plannedEndTime)}</span>
                           <Link href={`/tasks/${task.id}`} className="text-[11px] text-blue-600 hover:underline">Xem</Link>
-                          {canEdit && <Link href={`/tasks/${task.id}`} className="text-[11px] text-orange-600 hover:underline">Sửa</Link>}
-                          {canDelete && <button onClick={() => handleDelete(task.id)} className="text-[11px] text-red-600 hover:underline">Xóa</button>}
+                          {canEditTask(task) && <Link href={`/tasks/${task.id}`} className="text-[11px] text-orange-600 hover:underline">Sửa</Link>}
+                          {canDeleteTask(task) && <button onClick={() => handleDelete(task.id)} className="text-[11px] text-red-600 hover:underline">Xóa</button>}
                         </div>
                       ))}
                     </div>
@@ -351,11 +371,11 @@ function TasksPageContent() {
             <div key={assignee.employee?.id || "unassigned"} className="bg-white rounded-lg border">
               <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b rounded-t-lg">
                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
-                  {assignee.employee?.fullName?.charAt(0) || "?"}
+                  {assigneeName(assignee.employee).charAt(0) || "?"}
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900">{assignee.employee?.fullName || "Chưa phân công"}</p>
-                  <p className="text-xs text-gray-500">{assignee.employee?.employeeCode}</p>
+                  <p className="font-semibold text-gray-900">{assigneeName(assignee.employee)}</p>
+                  <p className="text-xs text-gray-500">{assigneeCode(assignee.employee)}</p>
                 </div>
                 <div className="flex gap-2 text-xs">
                   <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{assignee.count} tasks</span>
@@ -372,10 +392,10 @@ function TasksPageContent() {
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: workColor(task) }} />
                     <Link href={`/tasks/${task.id}`} className="text-sm text-blue-600 hover:underline flex-1 truncate">{task.taskCode}: {task.taskName}</Link>
                     <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[task.status as TaskStatus]}`}>{STATUS_LABELS[task.status as TaskStatus]}</span>
-                    <span className="text-xs text-gray-400">{formatDate(task.plannedStartDate)} → {formatDate(task.plannedEndDate)}</span>
+                    <span className="text-xs text-gray-400">{plannedDate(task.plannedStartDate, task.plannedStartTime)} → {plannedDate(task.plannedEndDate, task.plannedEndTime)}</span>
                     <Link href={`/tasks/${task.id}`} className="text-xs text-blue-600 hover:underline">Xem</Link>
-                    {canEdit && <Link href={`/tasks/${task.id}`} className="text-xs text-orange-600 hover:underline">Sửa</Link>}
-                    {canDelete && <button onClick={() => handleDelete(task.id)} className="text-xs text-red-600 hover:underline">Xóa</button>}
+                    {canEditTask(task) && <Link href={`/tasks/${task.id}`} className="text-xs text-orange-600 hover:underline">Sửa</Link>}
+                    {canDeleteTask(task) && <button onClick={() => handleDelete(task.id)} className="text-xs text-red-600 hover:underline">Xóa</button>}
                   </div>
                 ))}
               </div>
@@ -404,7 +424,7 @@ function TasksPageContent() {
               <tbody>
                 {tasks.map((task: any) => (
                   <tr key={task.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-sm">{task.currentAssignee?.fullName || (lang === "ja" ? "未割り当て" : "Chờ phân công")}</td>
+                    <td className="px-4 py-3 font-medium text-sm">{assigneeName(task.currentAssignee)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{task.taskCode}</td>
                     <td className="px-4 py-3">
                       <Link href={`/tasks/${task.id}`} className="text-blue-600 hover:underline">{task.taskName}</Link>
@@ -415,8 +435,8 @@ function TasksPageContent() {
                         {workName(task)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs">{formatDate(task.plannedStartDate)}</td>
-                    <td className="px-4 py-3 text-xs">{formatDate(task.plannedEndDate)}</td>
+                    <td className="px-4 py-3 text-xs">{plannedDate(task.plannedStartDate, task.plannedStartTime)}</td>
+                    <td className="px-4 py-3 text-xs">{plannedDate(task.plannedEndDate, task.plannedEndTime)}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[task.status as TaskStatus]}`}>{STATUS_LABELS[task.status as TaskStatus]}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1"><div className="w-12 h-1.5 bg-gray-200 rounded-full"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${task.progress}%` }} /></div><span className="text-xs">{task.progress}%</span></div>
@@ -424,7 +444,7 @@ function TasksPageContent() {
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs ${PRIORITY_COLORS[task.priority as TaskPriority]}`}>{PRIORITY_LABELS[task.priority as TaskPriority]}</span></td>
                     <td className="px-4 py-3 space-x-1">
                       <Link href={`/tasks/${task.id}`} className="text-blue-600 text-xs hover:underline">Xem</Link>
-                      {canDelete && <button onClick={() => handleDelete(task.id)} className="text-red-600 text-xs hover:underline">Xóa</button>}
+                      {canDeleteTask(task) && <button onClick={() => handleDelete(task.id)} className="text-red-600 text-xs hover:underline">Xóa</button>}
                     </td>
                   </tr>
                 ))}

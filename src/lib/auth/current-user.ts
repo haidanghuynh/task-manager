@@ -36,7 +36,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   if (!user?.isActive || !APP_ROLES.includes(user.role as AppRole)) return null;
 
   if (
-    user.role === "EMPLOYEE" &&
+    (user.role === "EMPLOYEE" || user.role === "MANAGER") &&
     (!user.employeeId || !user.employee?.isActive)
   ) {
     return null;

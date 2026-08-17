@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { buildTaskCode, checkOverlap } from "@/services/task.service";
 import { createTaskSchema } from "@/lib/validation/task";
 import { hasPermission } from "@/lib/permissions";
+import { getBusinessDateBoundary } from "@/lib/date";
+import { randomUUID } from "node:crypto";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -84,7 +86,10 @@ export async function GET(req: NextRequest) {
 
   if (overdueOnly) {
     where.status = { notIn: ["COMPLETED", "CANCELLED"] };
-    where.plannedEndDate = { ...(where.plannedEndDate as Prisma.DateTimeFilter | undefined), lt: new Date() };
+    where.plannedEndDate = {
+      ...(where.plannedEndDate as Prisma.DateTimeFilter | undefined),
+      lt: getBusinessDateBoundary(),
+    };
   }
 
   if (groupBy === "assignee" || groupBy === "team") {
@@ -215,10 +220,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
   }
 
-  if (!hasPermission(user, "TASK_CREATE")) {
-    return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
-  }
-
   try {
     const parsed = createTaskSchema.safeParse(await req.json());
     if (!parsed.success) {
@@ -227,11 +228,69 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const { taskName, description, workType, dailyCategory, productId, taskNumber, assigneeId, plannedStartDate: start, plannedEndDate, status, priority, note } = parsed.data;
+    const {
+      taskName, description, workType, dailyCategory, productId, taskNumber,
+      assigneeId: requestedAssigneeId, assigneeIds: requestedAssigneeIds,
+      plannedStartDate: start, plannedEndDate, plannedStartTime, plannedEndTime, status, priority, note,
+    } = parsed.data;
+    const createPermission = workType === "DAILY" ? "DAILY_TASK_CREATE" : "TASK_CREATE";
+    if (!hasPermission(user, createPermission)) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
+    }
+    const canAssignTask = hasPermission(user, "TASK_ASSIGN");
+    const canAssignDailyWithinTeam = workType === "DAILY" && user.role === "MANAGER";
+    const canChooseAssignees = canAssignTask || canAssignDailyWithinTeam;
+    if (!canChooseAssignees && !user.employeeId) {
+      return NextResponse.json({ success: false, error: { code: "EMPLOYEE_REQUIRED", message: "Account is not linked to an employee" } }, { status: 400 });
+    }
+    if (workType !== "DAILY" && requestedAssigneeIds.length > 0) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Multiple assignees are only supported for daily work" } },
+        { status: 400 },
+      );
+    }
 
-    if (user.role === "EMPLOYEE" && assigneeId) {
+    const submittedAssigneeIds = workType === "DAILY" && requestedAssigneeIds.length > 0
+      ? requestedAssigneeIds
+      : requestedAssigneeId ? [requestedAssigneeId] : [];
+    let assigneeIds = [...new Set(submittedAssigneeIds)];
+
+    if (!canChooseAssignees) {
+      assigneeIds = user.employeeId ? [user.employeeId] : [];
+    } else if (workType === "DAILY" && user.role === "EMPLOYEE") {
+      if (!user.employeeId || assigneeIds.some((employeeId) => employeeId !== user.employeeId)) {
+        return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Employees can only create daily work for themselves" } }, { status: 403 });
+      }
+      assigneeIds = [user.employeeId];
+    }
+
+    if (workType === "DAILY" && user.role === "MANAGER" && !user.teamId) {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Manager is not linked to a team" } }, { status: 403 });
+    }
+    if (canAssignDailyWithinTeam && !canAssignTask && assigneeIds.length === 0) {
+      return NextResponse.json(
+        { success: false, error: { code: "ASSIGNEE_REQUIRED", message: "Select at least one member of the manager's team" } },
+        { status: 400 },
+      );
+    }
+
+    if (assigneeIds.length > 0) {
+      const allowedEmployees = await prisma.employee.findMany({
+        where: {
+          id: { in: assigneeIds },
+          isActive: true,
+          ...(workType === "DAILY" && user.role === "MANAGER" ? { teamId: user.teamId } : {}),
+        },
+        select: { id: true },
+      });
+      if (allowedEmployees.length !== assigneeIds.length) {
+        return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "One or more assignees are outside the permitted team" } }, { status: 403 });
+      }
+    }
+
+    if (user.role === "EMPLOYEE" && assigneeIds.length > 0) {
       const visibleEmployeeIds = await getVisibleEmployeeIds(user);
-      if (!visibleEmployeeIds?.includes(assigneeId)) {
+      if (assigneeIds.some((employeeId) => !visibleEmployeeIds?.includes(employeeId))) {
         return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Permission denied" } }, { status: 403 });
       }
     }
@@ -243,52 +302,60 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Product not found or inactive" } }, { status: 400 });
     }
 
-    if (assigneeId) {
-      const employee = await prisma.employee.findUnique({ where: { id: assigneeId } });
-      if (!employee || !employee.isActive) {
-        return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Employee not found or inactive" } }, { status: 400 });
-      }
-    }
     const end = plannedEndDate ?? start;
 
     const taskCode = buildTaskCode(product?.code || "DAILY", taskNumber);
-    const overlaps = assigneeId ? await checkOverlap(assigneeId, start, end) : [];
+    const overlapGroups = await Promise.all(
+      assigneeIds.map(async (employeeId) => ({ employeeId, tasks: await checkOverlap(employeeId, start, end) })),
+    );
+    const overlaps = overlapGroups.flatMap(({ employeeId, tasks }) =>
+      tasks.map((overlap) => ({ ...overlap, overlapForEmployeeId: employeeId })),
+    );
+    const assignmentGroupId = assigneeIds.length > 1 ? randomUUID() : null;
+    const taskAssignees: Array<string | null> = assigneeIds.length > 0 ? assigneeIds : [null];
 
-    const task = await prisma.$transaction(async (tx) => {
-      const created = await tx.task.create({
-        data: {
-          taskCode,
-          taskName,
-          description: description || null,
-          workType,
-          dailyCategory: workType === "DAILY" ? dailyCategory : null,
-          productId: workType === "PRODUCT" ? productId : null,
-          currentAssigneeId: assigneeId || null,
-          createdById: user.id,
-          plannedStartDate: start,
-          plannedEndDate: end,
-          status,
-          progress: status === "COMPLETED" ? 100 : 0,
-          actualEndDate: status === "COMPLETED" ? new Date() : null,
-          priority,
-          note: note || null,
-        },
-      });
-      if (assigneeId) {
-        await tx.taskAssignmentHistory.create({
-          data: { taskId: created.id, employeeId: assigneeId, assignedById: user.id, assignedFrom: start },
+    const tasks = await prisma.$transaction(async (tx) => {
+      const createdTasks = [];
+      for (const assigneeId of taskAssignees) {
+        const created = await tx.task.create({
+          data: {
+            taskCode,
+            taskName,
+            description: description || null,
+            workType,
+            dailyCategory: workType === "DAILY" ? dailyCategory : null,
+            productId: workType === "PRODUCT" ? productId : null,
+            currentAssigneeId: assigneeId,
+            assignmentGroupId,
+            createdById: user.id,
+            plannedStartDate: start,
+            plannedEndDate: end,
+            plannedStartTime: workType === "DAILY" ? plannedStartTime || null : null,
+            plannedEndTime: workType === "DAILY" ? plannedEndTime || null : null,
+            status,
+            progress: status === "COMPLETED" ? 100 : 0,
+            actualEndDate: status === "COMPLETED" ? new Date() : null,
+            priority,
+            note: note || null,
+          },
         });
+        if (assigneeId) {
+          await tx.taskAssignmentHistory.create({
+            data: { taskId: created.id, employeeId: assigneeId, assignedById: user.id, assignedFrom: start },
+          });
+        }
+        await tx.taskStatusHistory.create({
+          data: { taskId: created.id, oldStatus: "PLANNED", newStatus: status, changedById: user.id },
+        });
+        createdTasks.push(created);
       }
-      await tx.taskStatusHistory.create({
-        data: { taskId: created.id, oldStatus: "PLANNED", newStatus: status, changedById: user.id },
-      });
-      return created;
+      return createdTasks;
     });
 
     return NextResponse.json({
       success: true,
-      data: { task, overlaps },
-      message: "Task created successfully",
+      data: { task: tasks[0], tasks, assignmentGroupId, overlaps },
+      message: tasks.length > 1 ? `${tasks.length} linked tasks created successfully` : "Task created successfully",
     }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

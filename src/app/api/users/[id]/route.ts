@@ -22,7 +22,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const usernameWasProvided = typeof body?.username === "string";
   const username = usernameWasProvided ? body.username.trim().toLowerCase() : target.username;
   const role = (typeof body?.role === "string" ? body.role : target.role) as AppRole;
-  const isActive = typeof body?.isActive === "boolean" ? body.isActive : target.isActive;
+  const hasActiveStateUpdate = typeof body?.isActive === "boolean";
+  const isActive = hasActiveStateUpdate ? body.isActive : target.isActive;
   const employeeId = body?.employeeId === null
     ? null
     : typeof body?.employeeId === "string" && body.employeeId ? body.employeeId : target.employeeId;
@@ -40,7 +41,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (employeeId) {
     const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { isActive: true } });
-    if (!employee?.isActive) return error(400, "INVALID_EMPLOYEE", "Employee does not exist or is inactive");
+    if (!employee) return error(400, "INVALID_EMPLOYEE", "Employee does not exist");
+    const reactivatingLinkedEmployee = hasActiveStateUpdate && isActive && employeeId === target.employeeId;
+    if (isActive && !employee.isActive && !reactivatingLinkedEmployee) {
+      return error(400, "INVALID_EMPLOYEE", "Employee does not exist or is inactive");
+    }
   }
   if (password && password.length < 8) return error(400, "WEAK_PASSWORD", "Password must contain at least 8 characters");
   if (target.isPrimaryAdmin && (!isActive || role !== "ADMIN")) {
@@ -51,14 +56,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        name, username, role, isActive, permissions,
-        employeeId: role === "EMPLOYEE" || role === "MANAGER" ? employeeId : employeeId || null,
-        ...(password ? { passwordHash: await hash(password, 12) } : {}),
-      },
-      select: { id: true, name: true, username: true, role: true, employeeId: true, permissions: true, isActive: true, isPrimaryAdmin: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.user.update({
+        where: { id },
+        data: {
+          name, username, role, isActive, permissions,
+          employeeId: role === "EMPLOYEE" || role === "MANAGER" ? employeeId : employeeId || null,
+          ...(password ? { passwordHash: await hash(password, 12) } : {}),
+        },
+        select: { id: true, name: true, username: true, role: true, employeeId: true, permissions: true, isActive: true, isPrimaryAdmin: true },
+      });
+      if (employeeId && hasActiveStateUpdate) {
+        await tx.employee.update({ where: { id: employeeId }, data: { isActive } });
+      }
+      return saved;
     });
     return NextResponse.json({ success: true, data: updated });
   } catch (caught: unknown) {

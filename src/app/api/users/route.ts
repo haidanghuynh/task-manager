@@ -24,8 +24,8 @@ export async function GET() {
       orderBy: [{ isActive: "desc" }, { name: "asc" }],
     }),
     prisma.employee.findMany({
-      where: { isActive: true },
-      select: { id: true, employeeCode: true, fullName: true, user: { select: { id: true } } },
+      where: { OR: [{ isActive: true }, { user: { is: { deletedAt: null } } }] },
+      select: { id: true, employeeCode: true, fullName: true, isActive: true, user: { select: { id: true } } },
       orderBy: { employeeCode: "asc" },
     }),
   ]);

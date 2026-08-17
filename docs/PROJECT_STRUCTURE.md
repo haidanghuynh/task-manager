@@ -110,8 +110,8 @@ error: { code, message? } }`. Phân quyền phải luôn được kiểm tra ở
 
 Task code được tạo theo `<PRODUCT_CODE>` hoặc `<PRODUCT_CODE>-<phần người dùng
 nhập>`, ví dụ `GATE-2.22.4`. Mã task có thể trùng. Một task hiện có một người phụ
-trách tại một thời điểm; cần thay đổi schema và UI nếu muốn nhiều người đồng phụ
-trách cùng một task.
+trách tại một thời điểm. Công việc DAILY có nhiều người được tạo thành nhiều Task độc lập, cùng
+`assignmentGroupId`; nhờ vậy mỗi người có trạng thái, tiến độ và NIPPO riêng.
 
 ## Vai trò và quyền
 

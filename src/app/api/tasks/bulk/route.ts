@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
     }),
   ]);
   const productByCode = new Map(products.map((product) => [product.code.toLowerCase(), product]));
+  const canAssignTasks = hasPermission(user, "TASK_ASSIGN");
+  const ownEmployee = user.employeeId ? employees.find((employee) => employee.id === user.employeeId) : undefined;
   const employeeGroups = new Map<string, Array<{ id: string; employeeCode: string }>>();
   for (const employee of employees) {
     const key = employee.employeeCode.toLowerCase();
@@ -52,10 +54,14 @@ export async function POST(req: NextRequest) {
       : [];
     const [requestedCode, taskName, description, productCode, assigneeCode, startValue, endValue,
       actualStartValue, actualEndValue, statusValue, progressValue, priorityValue, note,
-      workTypeValue, dailyCategoryValue] = values;
+      workTypeValue, dailyCategoryValue, plannedStartTime, plannedEndTime] = values;
     const rowNumber = index + 2;
     const product = productByCode.get((productCode || "").toLowerCase());
-    const employeeMatches = employeeGroups.get((assigneeCode || "").toLowerCase()) || [];
+    let employeeMatches = employeeGroups.get((assigneeCode || "").toLowerCase()) || [];
+    const requestedAnotherEmployee = Boolean(
+      assigneeCode && ownEmployee && assigneeCode.toLowerCase() !== ownEmployee.employeeCode.toLowerCase(),
+    );
+    if (!canAssignTasks && ownEmployee && !requestedAnotherEmployee) employeeMatches = [ownEmployee];
     const start = parseDate(startValue || "");
     const end = parseDate(endValue || "");
     const actualStart = parseDate(actualStartValue || "");
@@ -69,10 +75,17 @@ export async function POST(req: NextRequest) {
     let reason = "";
     if (!taskName || taskName.length > 200) reason = "Invalid task name";
     else if (workType !== "PRODUCT" && workType !== "DAILY") reason = `Invalid work type: ${workType}`;
+    else if (workType === "DAILY" && !hasPermission(user, "DAILY_TASK_CREATE")) reason = "No permission to create daily work";
+    else if (!canAssignTasks && !ownEmployee) reason = "Account is not linked to an employee";
+    else if (!canAssignTasks && requestedAnotherEmployee) reason = "No permission to assign task to another employee";
     else if (workType === "PRODUCT" && !product) reason = `Product code not found: ${productCode || "(empty)"}`;
     else if (workType === "DAILY" && (!dailyCategory || dailyCategory.length > 100)) reason = `Invalid daily category: ${dailyCategory || "(empty)"}`;
+    else if (workType === "PRODUCT" && (plannedStartTime || plannedEndTime)) reason = "Time is only supported for daily work";
+    else if (Boolean(plannedStartTime) !== Boolean(plannedEndTime)) reason = "Both planned times are required";
+    else if ((plannedStartTime && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(plannedStartTime)) || (plannedEndTime && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(plannedEndTime))) reason = "Invalid planned time";
     else if (assigneeCode && employeeMatches.length !== 1) reason = employeeMatches.length > 1 ? `Employee code is duplicated: ${assigneeCode}` : `Employee code not found: ${assigneeCode}`;
     else if (!start || !end || end < start) reason = "Invalid planned date range";
+    else if (plannedStartTime && plannedEndTime && start.toDateString() === end.toDateString() && plannedEndTime < plannedStartTime) reason = "Invalid planned time range";
     else if ((actualStartValue && !actualStart) || (actualEndValue && !actualEnd)) reason = "Invalid actual date";
     else if (!statuses.has(status)) reason = `Invalid status: ${status}`;
     else if (!priorities.has(priority)) reason = `Invalid priority: ${priority}`;
@@ -96,6 +109,8 @@ export async function POST(req: NextRequest) {
             productId: workType === "PRODUCT" ? product!.id : null,
             currentAssigneeId: employeeMatches[0]?.id || null, createdById: user.id,
             plannedStartDate: start!, plannedEndDate: end!,
+            plannedStartTime: workType === "DAILY" ? plannedStartTime || null : null,
+            plannedEndTime: workType === "DAILY" ? plannedEndTime || null : null,
             actualStartDate: actualStart ?? (status !== "PLANNED" ? start : null),
             actualEndDate: actualEnd ?? (status === "COMPLETED" ? end : null),
             status, progress, priority, note: note || null,

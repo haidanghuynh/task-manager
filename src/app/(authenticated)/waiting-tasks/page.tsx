@@ -77,8 +77,15 @@ export default function WaitingTasksPage() {
   const { data: session } = useSession();
   const { lang } = useLang();
   const dailyCategories = useDailyWorkCategories();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const allowed = hasPermission(session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined, "TASK_ASSIGN");
+  const permissionUser = session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
+  const role = permissionUser?.role;
+  const allowed = hasPermission(permissionUser, "TASK_ASSIGN");
+  const canCreateProduct = hasPermission(permissionUser, "TASK_CREATE");
+  const canCreateDaily = hasPermission(permissionUser, "DAILY_TASK_CREATE");
+  const canEditProduct = hasPermission(permissionUser, "TASK_EDIT");
+  const canEditDaily = hasPermission(permissionUser, "DAILY_TASK_EDIT");
+  const canDeleteProduct = hasPermission(permissionUser, "TASK_DELETE");
+  const canDeleteDaily = hasPermission(permissionUser, "DAILY_TASK_DELETE");
   const [tasks, setTasks] = useState<WaitingTask[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -107,6 +114,12 @@ export default function WaitingTasksPage() {
     priority: "MEDIUM",
     note: "",
   });
+
+  const effectiveCreateWorkType = form.workType === "PRODUCT" && canCreateProduct
+    ? "PRODUCT"
+    : form.workType === "DAILY" && canCreateDaily
+      ? "DAILY"
+      : canCreateProduct ? "PRODUCT" : "DAILY";
 
   const text = lang === "ja" ? {
     title: "未割り当てタスク",
@@ -255,7 +268,7 @@ export default function WaitingTasksPage() {
     const response = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, dailyCategory: form.workType === "DAILY" ? (form.dailyCategory === "__CUSTOM__" ? form.dailyCategoryCustom : form.dailyCategory) : null, plannedEndDate: form.plannedEndDate || null, assigneeId: "", status: "PLANNED" }),
+      body: JSON.stringify({ ...form, workType: effectiveCreateWorkType, dailyCategory: effectiveCreateWorkType === "DAILY" ? (form.dailyCategory === "__CUSTOM__" ? form.dailyCategoryCustom : form.dailyCategory) : null, plannedEndDate: form.plannedEndDate || null, assigneeId: "", status: "PLANNED" }),
     });
     const json = await response.json();
     setBusy(false);
@@ -263,7 +276,7 @@ export default function WaitingTasksPage() {
       setMessage(json.error?.message || (lang === "ja" ? "タスクを作成できません。" : "Không thể tạo task chờ."));
       return;
     }
-    setForm({ workType: "PRODUCT", dailyCategory: "", dailyCategoryCustom: "", productId: "", taskNumber: "", taskName: "", description: "", plannedStartDate: "", plannedEndDate: "", priority: "MEDIUM", note: "" });
+    setForm({ workType: canCreateProduct ? "PRODUCT" : "DAILY", dailyCategory: "", dailyCategoryCustom: "", productId: "", taskNumber: "", taskName: "", description: "", plannedStartDate: "", plannedEndDate: "", priority: "MEDIUM", note: "" });
     setShowCreate(false);
     setMessage(lang === "ja" ? "未割り当てタスクを作成しました。" : "Đã tạo task chờ.");
     await loadTasks();
@@ -355,16 +368,16 @@ export default function WaitingTasksPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="text-2xl font-bold text-gray-900">{text.title}</h2><p className="mt-1 text-sm text-gray-500">{text.description}</p></div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setShowCreate((current) => !current)} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">+ {text.create}</button>
+          {(canCreateProduct || canCreateDaily) && <button type="button" onClick={() => setShowCreate((current) => !current)} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">+ {text.create}</button>}
           <label className="cursor-pointer rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700">📥 {text.import}<input type="file" accept=".csv,text/csv" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (file) await importCsv(file); event.target.value = ""; }} /></label>
           <button type="button" onClick={exportCsv} className="rounded-lg bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700">📤 {text.export}</button>
         </div>
       </div>
 
-      {showCreate && (
+      {showCreate && (canCreateProduct || canCreateDaily) && (
         <form onSubmit={createWaitingTask} className="grid gap-4 rounded-lg border bg-white p-5 md:grid-cols-3">
-          <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務タイプ" : "Loại công việc"} *</span><select value={form.workType} onChange={(event) => setForm({ ...form, workType: event.target.value, productId: "", dailyCategory: "" })} className="w-full rounded border px-3 py-2"><option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option><option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option></select></label>
-          {form.workType === "PRODUCT" ? (
+          <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務タイプ" : "Loại công việc"} *</span><select value={effectiveCreateWorkType} onChange={(event) => setForm({ ...form, workType: event.target.value, productId: "", dailyCategory: "" })} className="w-full rounded border px-3 py-2">{canCreateProduct && <option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option>}{canCreateDaily && <option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option>}</select></label>
+          {effectiveCreateWorkType === "PRODUCT" ? (
             <label className="space-y-1 text-sm"><span>{text.product} *</span><select required value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{text.product}...</option>{products.filter((product) => product.isActive).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
           ) : (
             <label className="space-y-1 text-sm"><span>{lang === "ja" ? "業務カテゴリ" : "Nhóm công việc"} *</span><select required value={form.dailyCategory} onChange={(event) => setForm({ ...form, dailyCategory: event.target.value })} className="w-full rounded border px-3 py-2"><option value="">{lang === "ja" ? "カテゴリを選択..." : "Chọn nhóm công việc..."}</option>{dailyCategories.filter((category) => category.isActive !== false).map((category) => <option key={category.code} value={category.code}>{dailyWorkLabel(category.code, lang, dailyCategories)}</option>)}<option value="__CUSTOM__">{lang === "ja" ? "その他（入力）" : "Khác (tự nhập)"}</option></select>{form.dailyCategory === "__CUSTOM__" && <input required maxLength={100} value={form.dailyCategoryCustom} onChange={(event) => setForm({ ...form, dailyCategoryCustom: event.target.value })} className="w-full rounded border px-3 py-2" placeholder={lang === "ja" ? "業務カテゴリを入力..." : "Nhập nhóm công việc..."} />}</label>
@@ -389,7 +402,7 @@ export default function WaitingTasksPage() {
           <select value={productFilter} disabled={workTypeFilter === "DAILY"} onChange={(event) => { setProductFilter(event.target.value); if (event.target.value) setWorkTypeFilter("PRODUCT"); }} className="rounded border px-3 py-2 text-sm disabled:opacity-50"><option value="">{text.allProducts}</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>
           <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="rounded border px-3 py-2 text-sm"><option value="">{text.allPriorities}</option><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option></select>
         </div>
-        {filteredTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.empty}</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} /></th><th className="px-4 py-3">{text.task}</th><th className="px-4 py-3">{lang === "ja" ? "業務区分" : "Loại công việc"}</th><th className="px-4 py-3">{text.start}</th><th className="px-4 py-3">{text.end}</th><th className="px-4 py-3">{text.priority}</th><th className="px-4 py-3">{text.actions}</th></tr></thead><tbody className="divide-y">{filteredTasks.map((task) => <tr key={task.id} className="hover:bg-gray-50"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => toggleTask(task.id)} /></td><td className="px-4 py-3"><Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="mt-0.5 text-sm text-gray-900">{task.taskName}</p></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280" }} />{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedStartDate))}</td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedEndDate))}</td><td className="px-4 py-3 text-xs">{task.priority}</td><td className="whitespace-nowrap px-4 py-3"><Link href={`/tasks/${task.id}`} className="mr-3 text-blue-600 hover:underline">{text.edit}</Link><button type="button" onClick={() => deleteTask(task.id)} className="text-red-600 hover:underline">{text.delete}</button></td></tr>)}</tbody></table></div>}
+        {filteredTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.empty}</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} /></th><th className="px-4 py-3">{text.task}</th><th className="px-4 py-3">{lang === "ja" ? "業務区分" : "Loại công việc"}</th><th className="px-4 py-3">{text.start}</th><th className="px-4 py-3">{text.end}</th><th className="px-4 py-3">{text.priority}</th><th className="px-4 py-3">{text.actions}</th></tr></thead><tbody className="divide-y">{filteredTasks.map((task) => { const canEditTask = task.workType === "DAILY" ? canEditDaily : canEditProduct; const canDeleteTask = task.workType === "DAILY" ? canDeleteDaily : canDeleteProduct; return <tr key={task.id} className="hover:bg-gray-50"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => toggleTask(task.id)} /></td><td className="px-4 py-3"><Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="mt-0.5 text-sm text-gray-900">{task.taskName}</p></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280" }} />{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedStartDate))}</td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedEndDate))}</td><td className="px-4 py-3 text-xs">{task.priority}</td><td className="whitespace-nowrap px-4 py-3">{canEditTask && <Link href={`/tasks/${task.id}`} className="mr-3 text-blue-600 hover:underline">{text.edit}</Link>}{canDeleteTask && <button type="button" onClick={() => deleteTask(task.id)} className="text-red-600 hover:underline">{text.delete}</button>}</td></tr>; })}</tbody></table></div>}
         <div className="grid rounded-b-lg border-t bg-gray-50 p-4 gap-3 md:grid-cols-[auto_1fr_1fr_auto]"><span className="self-center text-sm font-medium">{text.selected}: {selectedCount}</span><select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="rounded border bg-white px-3 py-2 text-sm"><option value="">{text.employee}...</option>{employees.filter((employee) => employee.isActive).map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} ({employee.employeeCode}){employee.team?.name ? ` — ${employee.team.name}` : ""}</option>)}</select><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder={text.reason} className="rounded border bg-white px-3 py-2 text-sm" /><button type="button" disabled={busy || !employeeId || selectedCount === 0} onClick={assignTasks} className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-40">{text.assign} ({selectedCount})</button></div>
       </section>
 

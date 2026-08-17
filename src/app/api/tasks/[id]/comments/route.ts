@@ -25,7 +25,8 @@ export async function POST(
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
   const commentingOwnTask = task.currentAssigneeId === user.employeeId;
-  if (!hasPermission(user, "TASK_EDIT") && !(commentingOwnTask && hasPermission(user, "TASK_UPDATE_OWN"))) {
+  const editPermission = task.workType === "DAILY" ? "DAILY_TASK_EDIT" : "TASK_EDIT";
+  if (!hasPermission(user, editPermission) && !(commentingOwnTask && hasPermission(user, "TASK_UPDATE_OWN"))) {
     return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 

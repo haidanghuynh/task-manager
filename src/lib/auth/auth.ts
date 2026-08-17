@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (
           !user ||
           !user.isActive ||
-          (user.role === "EMPLOYEE" &&
+          ((user.role === "EMPLOYEE" || user.role === "MANAGER") &&
             (!user.employeeId || !user.employee?.isActive))
         ) {
           return null;

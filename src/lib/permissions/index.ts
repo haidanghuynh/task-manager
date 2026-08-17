@@ -3,6 +3,9 @@ export const APP_PERMISSIONS = [
   "TASK_CREATE",
   "TASK_EDIT",
   "TASK_DELETE",
+  "DAILY_TASK_CREATE",
+  "DAILY_TASK_EDIT",
+  "DAILY_TASK_DELETE",
   "TASK_ASSIGN",
   "TASK_IMPORT_EXPORT",
   "TASK_UPDATE_OWN",
@@ -56,13 +59,18 @@ export function resolvePermissions(role: PermissionRole, value?: string | null):
 
 export function withPermissionDependencies(values: AppPermission[]): AppPermission[] {
   const permissions = new Set(values);
-  const taskActions: AppPermission[] = ["TASK_CREATE", "TASK_EDIT", "TASK_DELETE", "TASK_ASSIGN", "TASK_IMPORT_EXPORT", "TASK_UPDATE_OWN"];
+  const taskActions: AppPermission[] = [
+    "TASK_CREATE", "TASK_EDIT", "TASK_DELETE",
+    "DAILY_TASK_CREATE", "DAILY_TASK_EDIT", "DAILY_TASK_DELETE",
+    "TASK_ASSIGN", "TASK_IMPORT_EXPORT", "TASK_UPDATE_OWN",
+  ];
   if (taskActions.some((permission) => permissions.has(permission))) permissions.add("TASK_VIEW");
   if (permissions.has("NIPPO_SUBMIT") || permissions.has("NIPPO_MANAGE")) permissions.add("NIPPO_VIEW");
   if (
     permissions.has("EMPLOYEE_MANAGE") ||
     permissions.has("EMPLOYEE_IMPORT_EXPORT") ||
     permissions.has("TASK_CREATE") ||
+    permissions.has("DAILY_TASK_CREATE") ||
     permissions.has("TASK_ASSIGN") ||
     permissions.has("TEAM_MANAGE")
   ) permissions.add("EMPLOYEE_VIEW");

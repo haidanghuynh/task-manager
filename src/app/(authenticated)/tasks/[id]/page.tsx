@@ -144,8 +144,12 @@ export default function TaskDetailPage() {
   }
 
   const permissionUser = user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[] } | undefined;
-  const canEdit = hasPermission(permissionUser, "TASK_EDIT");
-  const canDelete = hasPermission(permissionUser, "TASK_DELETE");
+  const canEditProduct = hasPermission(permissionUser, "TASK_EDIT");
+  const canEditDaily = hasPermission(permissionUser, "DAILY_TASK_EDIT");
+  const canEdit = task?.workType === "DAILY" ? canEditDaily : canEditProduct;
+  const canDelete = task?.workType === "DAILY"
+    ? hasPermission(permissionUser, "DAILY_TASK_DELETE")
+    : hasPermission(permissionUser, "TASK_DELETE");
   const canAssign = hasPermission(permissionUser, "TASK_ASSIGN");
   const isAssignee = task && user?.employeeId === task.currentAssigneeId;
   const canUpdateOwn = isAssignee && hasPermission(permissionUser, "TASK_UPDATE_OWN");
@@ -188,11 +192,13 @@ export default function TaskDetailPage() {
                   workType: e.target.value,
                   productId: e.target.value === "DAILY" ? null : editData.productId,
                   dailyCategory: e.target.value === "PRODUCT" ? null : editData.dailyCategory,
+                  plannedStartTime: e.target.value === "PRODUCT" ? null : editData.plannedStartTime,
+                  plannedEndTime: e.target.value === "PRODUCT" ? null : editData.plannedEndTime,
                 })}
                 className="mt-1 w-full rounded border px-3 py-2"
               >
-                <option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option>
-                <option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option>
+                {(task.workType === "PRODUCT" || canEditProduct) && <option value="PRODUCT">{lang === "ja" ? "製品タスク" : "Task sản phẩm"}</option>}
+                {(task.workType === "DAILY" || canEditDaily) && <option value="DAILY">{lang === "ja" ? "日常業務" : "Công việc hằng ngày"}</option>}
               </select>
             </label>
             {editData.workType === "DAILY" ? (
@@ -233,6 +239,16 @@ export default function TaskDetailPage() {
             <label className="text-sm">Kết thúc dự kiến
               <input type="date" value={editData.plannedEndDate?.slice(0, 10) || ""} onChange={(e) => setEditData({ ...editData, plannedEndDate: e.target.value })} className="mt-1 w-full rounded border px-3 py-2" />
             </label>
+            {editData.workType === "DAILY" && (
+              <>
+                <label className="text-sm">{lang === "ja" ? "開始時刻（任意）" : "Giờ bắt đầu (không bắt buộc)"}
+                  <input type="time" value={editData.plannedStartTime || ""} onChange={(e) => setEditData({ ...editData, plannedStartTime: e.target.value || null })} className="mt-1 w-full rounded border px-3 py-2" />
+                </label>
+                <label className="text-sm">{lang === "ja" ? "終了時刻（任意）" : "Giờ kết thúc (không bắt buộc)"}
+                  <input type="time" value={editData.plannedEndTime || ""} onChange={(e) => setEditData({ ...editData, plannedEndTime: e.target.value || null })} className="mt-1 w-full rounded border px-3 py-2" />
+                </label>
+              </>
+            )}
             <label className="text-sm">Độ ưu tiên
               <select value={editData.priority || "MEDIUM"} onChange={(e) => setEditData({ ...editData, priority: e.target.value })} className="mt-1 w-full rounded border px-3 py-2">
                 <option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn cấp</option>
@@ -267,11 +283,11 @@ export default function TaskDetailPage() {
         </div>
         <div>
           <label className="text-xs text-gray-500">Ngày bắt đầu dự kiến</label>
-          <p className="font-medium mt-1">{formatDate(task.plannedStartDate)}</p>
+          <p className="font-medium mt-1">{formatDate(task.plannedStartDate)}{task.plannedStartTime ? ` ${task.plannedStartTime}` : ""}</p>
         </div>
         <div>
           <label className="text-xs text-gray-500">Ngày kết thúc dự kiến</label>
-          <p className="font-medium mt-1">{formatDate(task.plannedEndDate)}</p>
+          <p className="font-medium mt-1">{formatDate(task.plannedEndDate)}{task.plannedEndTime ? ` ${task.plannedEndTime}` : ""}</p>
         </div>
         {task.actualEndDate && (
           <div>
@@ -317,6 +333,35 @@ export default function TaskDetailPage() {
           </div>
         )}
       </div>
+
+      {task.assignmentGroup?.length > 1 && (
+        <div className="rounded-lg border bg-white p-6">
+          <h3 className="font-semibold text-gray-900">
+            {lang === "ja" ? "同じ業務の参加者" : "Người cùng tham gia công việc"}
+          </h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {lang === "ja"
+              ? "各参加者は進捗とステータスを個別に更新できます。"
+              : "Mỗi người có tiến độ và trạng thái riêng."}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {task.assignmentGroup.map((linkedTask: any) => (
+              <button
+                key={linkedTask.id}
+                type="button"
+                onClick={() => router.push(`/tasks/${linkedTask.id}`)}
+                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm hover:bg-gray-50 ${linkedTask.id === task.id ? "border-blue-400 bg-blue-50" : ""}`}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{linkedTask.currentAssignee?.fullName}</span>
+                  <span className="text-xs text-gray-500">{linkedTask.currentAssignee?.employeeCode}</span>
+                </span>
+                <span className="shrink-0 font-medium text-blue-600">{linkedTask.progress}%</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick actions for employee */}
       {(canUpdateOwn || canEdit) && (

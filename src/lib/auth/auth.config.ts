@@ -21,13 +21,20 @@ export const authConfig = {
         const databaseUser = token.id
           ? await prisma.user.findUnique({
               where: { id: String(token.id) },
-              select: { role: true, employeeId: true, permissions: true, isActive: true },
+              select: {
+                role: true,
+                employeeId: true,
+                permissions: true,
+                isActive: true,
+                employee: { select: { teamId: true } },
+              },
             })
           : null;
         const role = databaseUser?.isActive ? databaseUser.role as PermissionRole : token.role as PermissionRole;
         (session.user as any).id = token.id;
         (session.user as any).role = role;
         (session.user as any).employeeId = databaseUser?.isActive ? databaseUser.employeeId : token.employeeId;
+        (session.user as any).teamId = databaseUser?.isActive ? databaseUser.employee?.teamId ?? null : null;
         (session.user as any).permissions = databaseUser?.isActive
           ? resolvePermissions(role, databaseUser.permissions)
           : token.permissions;

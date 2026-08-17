@@ -61,6 +61,17 @@ npm start
 
 ## Tài liệu
 
+- [Bắt đầu cho AI và người tiếp quản](AI_CONTEXT.md)
+- [Mục lục tài liệu đầy đủ](docs/README.md)
+- [Kiến trúc hệ thống](docs/ARCHITECTURE.md)
+- [Dữ liệu và migration](docs/DATABASE.md)
+- [Luồng nghiệp vụ](docs/BUSINESS_FLOWS.md)
+- [Vai trò và phân quyền](docs/PERMISSIONS.md)
+- [API reference](docs/API_REFERENCE.md)
+- [Frontend, i18n và theme](docs/FRONTEND_I18N_THEME.md)
+- [Quản lý Git, commit, push và rollback](docs/GIT_WORKFLOW.md)
+- [Triển khai và vận hành](docs/DEPLOYMENT_OPERATIONS.md)
+- [Checklist kiểm thử](docs/TESTING_CHECKLIST.md)
 - [Cấu trúc dự án và luồng nghiệp vụ](docs/PROJECT_STRUCTURE.md)
 - [Cách phát triển giao diện Việt Nam - Nhật Bản](docs/I18N.md)
 - [Hướng dẫn phát triển và bảo trì](docs/DEVELOPMENT.md)
