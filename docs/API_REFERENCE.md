@@ -30,7 +30,10 @@ trước ngày nghiệp vụ hiện tại. Task đang chờ, đến hạn hôm n
 
 POST: `taskName`, `description?`, `workType`, `dailyCategory?`, `productId?`, `taskNumber?`,
 `assigneeId?`, `assigneeIds?`, planned dates, `plannedStartTime?`, `plannedEndTime?`, status, priority, note. End trống dùng start. Suffix cho phép chữ/số,
-`.`, `_`, `-`. PATCH nhận full `taskCode`, cho phép trùng. COMPLETED tự progress 100/actual end.
+`.`, `_`, `-`. PATCH nhận các field cần đổi; client chi tiết chỉ gửi field có giá trị thay đổi để
+không validate lại dữ liệu legacy không liên quan. `taskCode` cho phép trùng và chỉ áp regex hiện tại
+khi chính mã được đổi. Có thể rút ngắn `plannedEndDate` nếu ngày mới vẫn bằng/sau `plannedStartDate`.
+COMPLETED tự progress 100/actual end.
 Đổi PRODUCT ↔ DAILY cần quyền sửa của cả hai loại. Import dòng DAILY cần đồng thời
 `TASK_IMPORT_EXPORT` và `DAILY_TASK_CREATE`.
 Người tạo/import không có `TASK_ASSIGN` chỉ được tạo task gán cho Employee liên kết của chính

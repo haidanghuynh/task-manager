@@ -36,6 +36,11 @@ người cần `DAILY_TASK_CREATE`. Manager được phân công trong chính nh
 quyền `TASK_ASSIGN` vẫn điều khiển phân công task sản phẩm, chuyển task và tạo task chờ. Sửa/xóa một bản không tự lan sang các bản
 còn lại trong nhóm liên kết.
 
+Khi sửa từ trang chi tiết, client cập nhật ngay từ response rồi refetch nền `no-store`, vì vậy không
+cần F5. Payload PATCH chỉ chứa field thực sự thay đổi. Rút ngắn ngày kết thúc được phép miễn không
+trước ngày bắt đầu; sửa ngày không được validate lại mã task legacy hoặc sản phẩm inactive không đổi.
+Nút Lưu/Hủy bị khóa trong lúc request để tránh gửi trùng.
+
 ## Status/lịch
 
 Status: `PLANNED`, `IN_PROGRESS`, `WAITING`, `COMPLETED`, `CANCELLED`. Source không áp state

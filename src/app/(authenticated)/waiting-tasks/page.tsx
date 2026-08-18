@@ -43,6 +43,33 @@ interface WaitingTask {
   note: string | null;
 }
 
+interface WaitingTaskResponse {
+  success: boolean;
+  data?: {
+    tasks: WaitingTask[];
+    pagination: { total: number; totalPages: number };
+  };
+}
+
+async function fetchAllWaitingTasks() {
+  const tasks: WaitingTask[] = [];
+  let page = 1;
+  let totalPages = 1;
+  let total = 0;
+
+  do {
+    const response = await fetch(`/api/tasks?assignment=unassigned&page=${page}&pageSize=100`, { cache: "no-store" });
+    const json = await response.json() as WaitingTaskResponse;
+    if (!json.success || !json.data) throw new Error("Unable to load waiting tasks");
+    tasks.push(...json.data.tasks);
+    total = json.data.pagination.total;
+    totalPages = Math.max(1, json.data.pagination.totalPages);
+    page += 1;
+  } while (page <= totalPages);
+
+  return { tasks, total };
+}
+
 function toDateInput(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -87,6 +114,7 @@ export default function WaitingTasksPage() {
   const canDeleteProduct = hasPermission(permissionUser, "TASK_DELETE");
   const canDeleteDaily = hasPermission(permissionUser, "DAILY_TASK_DELETE");
   const [tasks, setTasks] = useState<WaitingTask[]>([]);
+  const [totalTasks, setTotalTasks] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -157,6 +185,8 @@ export default function WaitingTasksPage() {
     save: "保存",
     cancel: "キャンセル",
     creating: "作成中...",
+    totalWaiting: "未割り当て合計",
+    totalDailyWaiting: "日常業務の未割り当て合計",
   } : {
     title: "Task chờ phân công",
     description: "Tạo và kiểm tra task chưa có người phụ trách, sau đó phân công hàng loạt.",
@@ -193,12 +223,14 @@ export default function WaitingTasksPage() {
     save: "Lưu task chờ",
     cancel: "Hủy",
     creating: "Đang tạo...",
+    totalWaiting: "Tổng task chờ",
+    totalDailyWaiting: "Tổng công việc hằng ngày chờ",
   };
 
   async function loadTasks() {
-    const response = await fetch("/api/tasks?assignment=unassigned&page=1&pageSize=100");
-    const json = await response.json();
-    if (json.success) setTasks(json.data.tasks);
+    const result = await fetchAllWaitingTasks();
+    setTasks(result.tasks);
+    setTotalTasks(result.total);
     setSelectedIds(new Set());
   }
 
@@ -206,12 +238,13 @@ export default function WaitingTasksPage() {
     if (!allowed) return;
     let cancelled = false;
     Promise.all([
-      fetch("/api/tasks?assignment=unassigned&page=1&pageSize=100").then((response) => response.json()),
+      fetchAllWaitingTasks(),
       fetch("/api/products").then((response) => response.json()),
       fetch("/api/employees?pageSize=100&isActive=true").then((response) => response.json()),
-    ]).then(([taskJson, productJson, employeeJson]) => {
+    ]).then(([taskResult, productJson, employeeJson]) => {
       if (cancelled) return;
-      if (taskJson.success) setTasks(taskJson.data.tasks);
+      setTasks(taskResult.tasks);
+      setTotalTasks(taskResult.total);
       if (productJson.success) setProducts(productJson.data);
       if (employeeJson.success) setEmployees(employeeJson.data.employees);
     });
@@ -225,6 +258,15 @@ export default function WaitingTasksPage() {
       && (!workTypeFilter || task.workType === workTypeFilter)
       && (!priorityFilter || task.priority === priorityFilter);
   }), [tasks, search, productFilter, workTypeFilter, priorityFilter]);
+
+  const selectedProductName = products.find((product) => product.id === productFilter)?.name;
+  const waitingTotalLabel = selectedProductName
+    ? (lang === "ja" ? `${selectedProductName}の未割り当て合計` : `${text.totalWaiting} ${selectedProductName}`)
+    : workTypeFilter === "DAILY"
+      ? text.totalDailyWaiting
+      : text.totalWaiting;
+  const hasActiveTaskFilter = Boolean(search.trim() || productFilter || workTypeFilter || priorityFilter);
+  const visibleWaitingTotal = hasActiveTaskFilter ? filteredTasks.length : totalTasks;
 
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -373,6 +415,10 @@ export default function WaitingTasksPage() {
           <button type="button" onClick={exportCsv} className="rounded-lg bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700">📤 {text.export}</button>
         </div>
       </div>
+
+      <p className="text-sm font-medium text-gray-700">
+        {waitingTotalLabel}: <span className="font-bold text-gray-900">{visibleWaitingTotal}</span>
+      </p>
 
       {showCreate && (canCreateProduct || canCreateDaily) && (
         <form onSubmit={createWaitingTask} className="grid gap-4 rounded-lg border bg-white p-5 md:grid-cols-3">

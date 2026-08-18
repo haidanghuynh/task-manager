@@ -48,6 +48,9 @@ nhật lại tài liệu trong cùng commit.
   quá hạn từ ngày kế tiếp sau `plannedEndDate`; DAILY và task `WAITING` không bao giờ báo quá hạn.
 - Mã task được phép trùng và sửa. Dạng sản phẩm là `<PRODUCT_CODE>` hoặc
   `<PRODUCT_CODE>-<phần tự nhập>`, ví dụ `GATE-2.22.4`.
+- Trang chi tiết chỉ gửi field task thực sự thay đổi khi PATCH, cập nhật response ngay rồi refetch
+  `no-store`. Không gửi lại/validate mã legacy hoặc sản phẩm inactive nếu người dùng chỉ sửa ngày.
+  Cho phép rút ngắn `plannedEndDate` miễn ngày mới không trước `plannedStartDate`.
 - Task `DAILY` cần `dailyCategory`, task `PRODUCT` cần Product. Category lưu dạng text không FK để
   giữ lịch sử và giá trị tự nhập.
 - DAILY có cặp `plannedStartTime`/`plannedEndTime` dạng `HH:mm`; không gộp vào DateTime ngày và không
