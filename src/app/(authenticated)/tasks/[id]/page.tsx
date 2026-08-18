@@ -80,7 +80,7 @@ export default function TaskDetailPage() {
     setError("");
     setSaving(true);
     try {
-      const updatePayload = {
+      const editableValues = {
         taskCode: editData.taskCode,
         taskName: editData.taskName,
         description: editData.description || null,
@@ -94,6 +94,15 @@ export default function TaskDetailPage() {
         priority: editData.priority,
         note: editData.note || null,
       };
+      const dateFields = new Set(["plannedStartDate", "plannedEndDate"]);
+      const updatePayload = Object.fromEntries(
+        Object.entries(editableValues).filter(([field, value]) => {
+          const currentValue = dateFields.has(field)
+            ? task[field]?.slice(0, 10)
+            : task[field];
+          return (value ?? null) !== (currentValue ?? null);
+        }),
+      );
       const response = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
