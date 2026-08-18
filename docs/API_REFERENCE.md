@@ -25,8 +25,8 @@ GET filters: `page`, `pageSize` (max 100), `search`, `status`, `product`, `workT
 `assignment=unassigned` cần `TASK_ASSIGN`; `groupBy=assignee|team` trả grouped thay pagination.
 `status` và `workType` độc lập. Bỏ trống `status` nghĩa là mọi trạng thái và vẫn gồm cả PRODUCT/DAILY;
 bỏ trống `workType` nghĩa là cả hai loại công việc. Client list và export phải gửi cùng bộ lọc.
-Filter `overdue=true` chỉ lấy task sản phẩm chưa hoàn thành/hủy có ngày kết thúc trước ngày nghiệp vụ
-hiện tại; task đến hạn hôm nay và công việc hằng ngày chưa hoàn thành không được xem là quá hạn.
+Filter `overdue=true` chỉ lấy task sản phẩm ở trạng thái chưa bắt đầu/đang thực hiện có ngày kết thúc
+trước ngày nghiệp vụ hiện tại. Task đang chờ, đến hạn hôm nay và công việc hằng ngày không được xem là quá hạn.
 
 POST: `taskName`, `description?`, `workType`, `dailyCategory?`, `productId?`, `taskNumber?`,
 `assigneeId?`, `assigneeIds?`, planned dates, `plannedStartTime?`, `plannedEndTime?`, status, priority, note. End trống dùng start. Suffix cho phép chữ/số,

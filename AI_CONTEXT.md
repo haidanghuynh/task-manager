@@ -45,7 +45,7 @@ nhật lại tài liệu trong cùng commit.
   đặt theo phút. Phải dùng `visibleTasks` để giữ filter và chỉ đưa Employee active vào dialog.
 - Khi bật hiển thị completed, thanh `COMPLETED` dùng màu emerald + sọc + dấu `✓` ở cả hai chế độ lịch.
 - `COMPLETED` đặt tiến độ 100%; mặc định completed/cancelled không hiện trên lịch. Task sản phẩm chỉ
-  quá hạn từ ngày kế tiếp sau `plannedEndDate`; DAILY chưa hoàn thành không bao giờ báo quá hạn.
+  quá hạn từ ngày kế tiếp sau `plannedEndDate`; DAILY và task `WAITING` không bao giờ báo quá hạn.
 - Mã task được phép trùng và sửa. Dạng sản phẩm là `<PRODUCT_CODE>` hoặc
   `<PRODUCT_CODE>-<phần tự nhập>`, ví dụ `GATE-2.22.4`.
 - Task `DAILY` cần `dailyCategory`, task `PRODUCT` cần Product. Category lưu dạng text không FK để

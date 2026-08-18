@@ -65,7 +65,7 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
 - Annual report và DAILY count.
 - NIPPO draft/submit/edit/delete, task/dòng tự do, giờ/progress/previous progress.
 - Manager xem team và absence (reason optional); Admin overview mọi team; Employee không vượt scope.
-- DAILY chưa hoàn thành và đã qua ngày kết thúc không tăng số Quá hạn; PRODUCT cùng điều kiện vẫn tăng.
+- DAILY và task WAITING đã qua ngày kết thúc không tăng số Quá hạn; PRODUCT ở PLANNED/IN_PROGRESS cùng điều kiện vẫn tăng.
 
 ## Production
 

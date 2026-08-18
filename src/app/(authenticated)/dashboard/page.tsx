@@ -116,7 +116,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         where: {
           ...taskFilterBase,
           workType: "PRODUCT",
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          status: { notIn: ["COMPLETED", "CANCELLED", "WAITING"] },
           plannedEndDate: { gte: period.start, lt: overdueBefore },
         },
       }),

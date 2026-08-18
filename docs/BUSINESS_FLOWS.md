@@ -39,7 +39,7 @@ còn lại trong nhóm liên kết.
 ## Status/lịch
 
 Status: `PLANNED`, `IN_PROGRESS`, `WAITING`, `COMPLETED`, `CANCELLED`. Source không áp state
-machine cứng. COMPLETED tự 100% và actual end nếu thiếu. Task sản phẩm còn mở chỉ được tính quá hạn khi
+machine cứng. COMPLETED tự 100% và actual end nếu thiếu. Task sản phẩm ở trạng thái PLANNED hoặc IN_PROGRESS chỉ được tính quá hạn khi
 ngày hiện tại theo `Asia/Ho_Chi_Minh` lớn hơn ngày kết thúc; trong toàn bộ ngày kết thúc task vẫn
 còn hạn.
 

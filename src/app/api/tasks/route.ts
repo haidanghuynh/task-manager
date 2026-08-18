@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (overdueOnly) {
-    where.status = { notIn: ["COMPLETED", "CANCELLED"] };
+    where.status = { notIn: ["COMPLETED", "CANCELLED", "WAITING"] };
     where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), { workType: "PRODUCT" }];
     where.plannedEndDate = {
       ...(where.plannedEndDate as Prisma.DateTimeFilter | undefined),
