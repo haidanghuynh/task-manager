@@ -80,14 +80,31 @@ export default function TaskDetailPage() {
     setError("");
     setSaving(true);
     try {
+      const updatePayload = {
+        taskCode: editData.taskCode,
+        taskName: editData.taskName,
+        description: editData.description || null,
+        workType: editData.workType,
+        dailyCategory: editData.workType === "DAILY" ? editData.dailyCategory : null,
+        productId: editData.workType === "PRODUCT" ? editData.productId : null,
+        plannedStartDate: editData.plannedStartDate?.slice(0, 10),
+        plannedEndDate: editData.plannedEndDate?.slice(0, 10),
+        plannedStartTime: editData.workType === "DAILY" ? editData.plannedStartTime || null : null,
+        plannedEndTime: editData.workType === "DAILY" ? editData.plannedEndTime || null : null,
+        priority: editData.priority,
+        note: editData.note || null,
+      };
       const response = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editData),
+        body: JSON.stringify(updatePayload),
       });
       const json = await response.json();
       if (!response.ok || !json.success) {
-        setError(json.error?.message || (lang === "ja" ? "タスクを更新できません。" : "Không thể cập nhật task"));
+        const fieldMessage = json.error?.details
+          ? Object.values(json.error.details as Record<string, string[]>).flat().find(Boolean)
+          : undefined;
+        setError(json.error?.message || fieldMessage || (lang === "ja" ? "タスクを更新できません。" : "Không thể cập nhật task"));
         return;
       }
 

@@ -139,8 +139,10 @@ export async function PATCH(
   try {
     const parsed = updateTaskSchema.safeParse(await req.json());
     if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const message = Object.values(fieldErrors).flat().find(Boolean);
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", details: parsed.error.flatten().fieldErrors } },
+        { success: false, error: { code: "VALIDATION_ERROR", message, details: fieldErrors } },
         { status: 400 },
       );
     }
@@ -183,7 +185,9 @@ export async function PATCH(
     const finalStartTime = updateData.plannedStartTime === undefined ? task.plannedStartTime : updateData.plannedStartTime;
     const finalEndTime = updateData.plannedEndTime === undefined ? task.plannedEndTime : updateData.plannedEndTime;
 
-    if (finalWorkType === "PRODUCT" && typeof finalProductId === "string") {
+    const productChanged = finalWorkType !== task.workType
+      || (updateData.productId !== undefined && updateData.productId !== task.productId);
+    if (finalWorkType === "PRODUCT" && typeof finalProductId === "string" && productChanged) {
       const product = await prisma.product.findUnique({ where: { id: finalProductId } });
       if (!product?.isActive) {
         return NextResponse.json(
