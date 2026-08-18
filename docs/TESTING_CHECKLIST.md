@@ -42,6 +42,7 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
 - Employee có DAILY create vẫn chỉ tạo được cho chính mình; tài khoản không liên kết Employee bị chặn.
 - Unassigned chỉ ở hàng chờ; assign xong chỉ list/lịch; reassign/unassign reason trống.
 - Completed tự 100%, mặc định khỏi lịch; completed/cancelled không unassign.
+- Sau khi sửa task và bấm Lưu, chi tiết mới hiển thị ngay không cần F5; nút Lưu khóa khi request đang chạy.
 - Import/export task/Employee round trip UTF-8.
 - Filter/group assignee/team; group/status đọc được dark.
 - "Tất cả trạng thái" + "Tất cả công việc" gồm cả PRODUCT và DAILY; chọn riêng PRODUCT/DAILY phải

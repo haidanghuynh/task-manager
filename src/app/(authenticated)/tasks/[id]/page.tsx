@@ -28,6 +28,7 @@ export default function TaskDetailPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [unassignReason, setUnassignReason] = useState("");
   const [unassigning, setUnassigning] = useState(false);
 
@@ -41,12 +42,20 @@ export default function TaskDetailPage() {
       .then((json) => json.success && setProducts(json.data));
   }, [id]);
 
-  async function fetchTask() {
-    setLoading(true);
-    const res = await fetch(`/api/tasks/${id}`);
-    const json = await res.json();
-    if (json.success) { setTask(json.data); setEditData(json.data); }
-    setLoading(false);
+  async function fetchTask(showLoading = true): Promise<boolean> {
+    if (showLoading) setLoading(true);
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json.success) return false;
+      setTask(json.data);
+      setEditData(json.data);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }
 
   async function handleStatusUpdate(newStatus: string) {
@@ -69,18 +78,37 @@ export default function TaskDetailPage() {
 
   async function handleSave() {
     setError("");
-    const response = await fetch(`/api/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editData),
-    });
-    const json = await response.json();
-    if (!json.success) {
-      setError(json.error?.message || "Không thể cập nhật task");
-      return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editData),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        setError(json.error?.message || (lang === "ja" ? "タスクを更新できません。" : "Không thể cập nhật task"));
+        return;
+      }
+
+      const updatedTask = json.data?.task;
+      if (updatedTask) {
+        setTask((current: any) => ({ ...current, ...updatedTask }));
+        setEditData((current: any) => ({ ...current, ...updatedTask }));
+      }
+      setEditing(false);
+
+      const refreshed = await fetchTask(false);
+      if (!refreshed) {
+        setError(lang === "ja"
+          ? "保存しましたが、最新データを再読み込みできませんでした。"
+          : "Đã lưu task nhưng chưa thể tải lại dữ liệu mới nhất.");
+      }
+    } catch {
+      setError(lang === "ja" ? "タスクを更新できません。" : "Không thể cập nhật task");
+    } finally {
+      setSaving(false);
     }
-    setEditing(false);
-    fetchTask();
   }
 
   async function handleComment() {
@@ -262,8 +290,8 @@ export default function TaskDetailPage() {
             </label>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSave} className="rounded bg-blue-600 px-4 py-2 text-sm text-white">Lưu</button>
-            <button onClick={() => { setEditing(false); setEditData(task); }} className="rounded border px-4 py-2 text-sm">Hủy</button>
+            <button data-i18n-ignore disabled={saving} onClick={handleSave} className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? (lang === "ja" ? "保存中..." : "Đang lưu...") : (lang === "ja" ? "保存" : "Lưu")}</button>
+            <button data-i18n-ignore disabled={saving} onClick={() => { setEditing(false); setEditData(task); }} className="rounded border px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60">{lang === "ja" ? "キャンセル" : "Hủy"}</button>
           </div>
         </div>
       )}
