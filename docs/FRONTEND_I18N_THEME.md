@@ -42,3 +42,19 @@ component nếu các nơi khác không cần.
 Grid ngày, cột trái/header sticky, mặc định group team và collapse. Overlap tạo lane. Các lỗi dễ
 tái phát: overflow làm mất sticky, vỡ góc bo, bar hụt/vượt vạch cuối, viewport quá ngắn, text chìm
 dark. Test tháng 28/29/30/31, task một ngày/cắt tháng/overlap, scroll, collapse và hai theme.
+
+## Chatbox AI
+
+`src/components/ai/ai-assistant.tsx` là panel phải trên desktop và full-screen trên mobile. Chuỗi UI
+tự chọn theo `lang` và vùng chat dùng `data-i18n-ignore` để MutationObserver không dịch lại câu trả lời
+AI hoặc dữ liệu người dùng. Nút chỉ xuất hiện sau khi `/api/features` xác nhận flag + role. Mọi màu mới
+phải thử ở cả light/dark.
+
+Tin nhắn assistant dùng `react-markdown` và `remark-gfm`; bảng đặt trong vùng cuộn ngang để không phá
+panel 440px. Không bật raw HTML. Tin nhắn người dùng vẫn render text thuần.
+
+Tên chatbox lấy từ `AI_ASSISTANT_NAME` qua `/api/features` (mặc định `Tiểu Mỹ`), không hard-code riêng
+giữa nút, header và system prompt. Lời chào tự chọn vi/ja; tên hiển thị người dùng không bị dịch.
+
+Nút thu nhỏ dùng Pointer Events để kéo chuột/cảm ứng, clamp theo viewport và lưu vị trí localStorage.
+Panel khi mở không di chuyển theo nút. Test drag/click riêng, snap cạnh, reload và resize desktop/mobile.

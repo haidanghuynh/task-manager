@@ -187,3 +187,14 @@ npx tsx prisma/seed.ts
 Không ghi đè `/etc/task-manager/task-manager.env` hoặc
 `/var/lib/task-manager/task-manager.db`. Xem quy trình backup và phục hồi tại
 [`docs/BACKUP_RESTORE.md`](BACKUP_RESTORE.md).
+
+## Trợ lý AI local
+
+Tính năng mặc định tắt. Khi cần thử, thêm vào `.env`, restart dev server và xem
+[`AI_ASSISTANT.md`](AI_ASSISTANT.md):
+
+```dotenv
+AI_ASSISTANT_ENABLED="true"
+AI_MODEL="deepseek-v4-flash"
+DEEPSEEK_API_KEY="<api-key>"
+```

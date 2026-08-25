@@ -91,10 +91,11 @@ Task lưu category code string. Edit không đổi category code; inactive khôn
 
 | Endpoint | Method | Quyền | Query |
 |---|---|---|---|
-| `/api/schedule` | GET | `SCHEDULE_VIEW` | `month`, `product`, `employee`, `includeCompleted` |
+| `/api/schedule` | GET | `SCHEDULE_VIEW` | `month`, `product`, `employee`, `includeCompleted`; kết quả gồm tháng đã chọn và 7 ngày đầu tháng kế tiếp |
 | `/api/reports/annual` | GET | `REPORT_VIEW` | `year`, `employee` |
 
-Schedule chỉ task có assignee giao với tháng, mặc định bỏ completed/cancelled. Annual gom theo
+Schedule chỉ task có assignee giao với tháng cùng 7 ngày đầu tháng kế tiếp, mặc định bỏ
+completed/cancelled. Annual gom theo
 assignee hiện tại, đếm completed/cancelled/on-time/late/days/reassignments/ZONE/GATE/HUNTER/DAILY.
 
 ## Báo cáo hằng ngày
@@ -120,3 +121,13 @@ TaskId phải thuộc người báo cáo tại ngày đó. Absence upsert theo E
 API trả log mới nhất trước, danh sách giá trị lọc và pagination. `from`/`to` dùng ngày theo múi giờ
 `+07:00`. `details` được parse từ JSON; password, hash, secret, token, authorization và cookie không
 được ghi vào log.
+
+## Feature và AI
+
+- `GET /api/features`: cần đăng nhập; trả `aiAssistant`/`aiConfigured` đã xét role. Employee luôn nhận
+  `aiAssistant=false`; Admin/Manager còn nhận `aiAssistantName` để UI và prompt dùng cùng một tên.
+- `POST /api/ai/chat`: feature flag bật và role Admin/Manager. Body gồm tối đa 12 `messages`,
+  `language: vi|ja`, `context.pathname?`. Manager thiếu team nhận 403; quá giới hạn nhận 429; chưa có
+  API key nhận 503. Response thành công trả `answer`, `toolsUsed`, `model`.
+
+Endpoint AI chỉ đọc. Manager scope được áp tại từng tool, không tin `teamName` hoặc context từ client.

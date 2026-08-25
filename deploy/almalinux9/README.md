@@ -105,6 +105,10 @@ thay đổi và giữ nguyên:
 /etc/task-manager/task-manager.env
 ```
 
+Installer mới tạo sẵn `AI_ASSISTANT_ENABLED=false`; trợ lý AI không hoạt động cho tới khi Admin cấu
+hình server theo [`docs/AI_ASSISTANT.md`](../../docs/AI_ASSISTANT.md). Installer cập nhật không ghi đè
+cấu hình AI đã có trong file môi trường.
+
 Backup source trước cập nhật không chứa `node_modules`, `.next`, `.git`, file môi
 trường hoặc SQLite vì các phần này được tạo lại hay sao lưu riêng. Installer giữ
 3 backup source gần nhất, kiểm tra dung lượng trống và chỉ đổi tên file backup sau

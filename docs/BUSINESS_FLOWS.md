@@ -52,7 +52,9 @@ còn hạn.
   Bộ lọc trạng thái và loại công việc độc lập: "Tất cả trạng thái" không loại DAILY; khi loại công
   việc là "Tất cả công việc", kết quả gồm cả PRODUCT và DAILY ở mọi trạng thái được phép hiển thị.
 - `/waiting-tasks`: task chưa giao, table + timeline.
-- `/schedule`: task có assignee giao với tháng, mặc định theo team; nhiều overlap thành nhiều lane.
+- `/schedule`: task có assignee giao với tháng và 7 ngày đầu tháng kế tiếp, mặc định theo team; nhiều
+  overlap thành nhiều lane. Tuần mở rộng giúp xem trọn task kéo dài qua tháng, dùng màu ngày như tháng
+  hiện tại và nhãn dạng `ngày/tháng`. Giữ và kéo chuột trên vùng trống của bảng để cuộn ngang tới tuần mở rộng.
   Bấm tiêu đề ngày hoặc ô ngày mở timeline ngày: hàng vẫn theo nhóm/nhân viên, trục ngang đổi thành
   24 mốc giờ. Task có giờ bắt đầu ở đúng phút và thanh hiển thị bao gồm cả ô của giờ kết thúc (ví dụ
   `13:00–14:00` phủ ô 13 và 14); task không giờ chạy cả ngày. Nội dung tuân theo các bộ lọc đang bật.

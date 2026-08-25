@@ -1,6 +1,7 @@
 import { SessionProvider } from "@/components/layout/session-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { LangProvider } from "@/lib/i18n";
+import { AiAssistant } from "@/components/ai/ai-assistant";
 
 export default function AuthenticatedLayout({
   children,
@@ -13,6 +14,7 @@ export default function AuthenticatedLayout({
         <div className="min-h-screen bg-gray-50">
           <Sidebar />
           <main className="ml-64 min-h-screen">{children}</main>
+          <AiAssistant />
         </div>
       </LangProvider>
     </SessionProvider>

@@ -136,7 +136,10 @@ export default function SchedulePage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [scheduleViewportWidth, setScheduleViewportWidth] = useState(0);
   const stickyDaysRef = useRef<HTMLDivElement>(null);
+  const scheduleScrollRef = useRef<HTMLDivElement>(null);
+  const horizontalDragRef = useRef({ pointerId: -1, startX: 0, startScrollLeft: 0, dragged: false });
 
   const currentMonth = visibleMonth.getMonth();
   const currentYear = visibleMonth.getFullYear();
@@ -184,14 +187,29 @@ export default function SchedulePage() {
     return () => { cancelled = true; };
   }, [monthStr, reloadToken, showCompleted]);
 
-  const daysInMonth = useMemo(() => {
+  const scheduleDays = useMemo(() => {
     const days = [];
     const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-    for (let d = 1; d <= lastDay; d++) {
+    for (let d = 1; d <= lastDay + 7; d++) {
       days.push(new Date(currentYear, currentMonth, d));
     }
     return days;
   }, [currentMonth, currentYear]);
+
+  useEffect(() => {
+    const element = scheduleScrollRef.current;
+    if (!element) return;
+
+    const updateWidth = () => setScheduleViewportWidth(element.clientWidth);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [loading, monthStr]);
+
+  const monthDayCount = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const dayColumnWidth = Math.max(28, (scheduleViewportWidth - 200) / monthDayCount);
+  const scheduleContentWidth = 200 + dayColumnWidth * scheduleDays.length;
 
   const selectMonth = (value: string) => {
     const match = /^(\d{4})-(\d{2})$/.exec(value);
@@ -220,6 +238,32 @@ export default function SchedulePage() {
     }
   };
 
+  const startHorizontalDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("a, button, input, select, textarea")) return;
+    horizontalDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startScrollLeft: event.currentTarget.scrollLeft,
+      dragged: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveHorizontalDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = horizontalDragRef.current;
+    if (drag.pointerId !== event.pointerId) return;
+    const distance = event.clientX - drag.startX;
+    if (Math.abs(distance) > 4) drag.dragged = true;
+    if (drag.dragged) event.currentTarget.scrollLeft = drag.startScrollLeft - distance;
+  };
+
+  const endHorizontalDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (horizontalDragRef.current.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    horizontalDragRef.current.pointerId = -1;
+  };
+
   const today = new Date();
   const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
   const isToday = (d: Date) => d.toDateString() === today.toDateString();
@@ -233,7 +277,7 @@ export default function SchedulePage() {
     (task) => task.currentAssigneeId && employeesWithoutTeamIds.has(task.currentAssigneeId),
   ).length;
   const monthStartKey = `${monthStr}-01`;
-  const monthEndKey = `${monthStr}-${String(daysInMonth.length).padStart(2, "0")}`;
+  const scheduleEndKey = calendarDateKey(scheduleDays[scheduleDays.length - 1]);
   const unassignedTeamKey = "__unassigned__";
   const activeEmployeeIds = new Set(employees.map((employee) => employee.id));
   const selectedDayTasks = selectedDayKey
@@ -270,18 +314,18 @@ export default function SchedulePage() {
 
   const renderEmployeeRow = (emp: ScheduleEmployee) => {
     const empTasks = visibleTasks.filter((task) => task.currentAssigneeId === emp.id);
-    const positionedTasks = positionTasks(empTasks, monthStartKey, monthEndKey);
+    const positionedTasks = positionTasks(empTasks, monthStartKey, scheduleEndKey);
     const laneCount = Math.max(1, ...positionedTasks.map((task) => task.lane + 1));
     const rowHeight = laneCount * 26 + 8;
     return (
-      <div key={emp.id} className="grid border-b hover:bg-gray-50" style={{ gridTemplateColumns: `200px repeat(${daysInMonth.length}, minmax(28px, 1fr))` }}>
+      <div key={emp.id} className="grid border-b hover:bg-gray-50" style={{ gridTemplateColumns: `200px repeat(${scheduleDays.length}, ${dayColumnWidth}px)`, width: `${scheduleContentWidth}px` }}>
         <div className="sticky left-0 z-20 flex items-center border-r bg-white px-3 py-2 shadow-[2px_0_4px_rgba(15,23,42,0.06)]" style={{ minHeight: `${rowHeight}px` }}>
           <div>
             <p className="text-sm font-medium text-gray-900 truncate">{emp.fullName}</p>
             <p className="text-xs text-gray-400">{emp.employeeCode}</p>
           </div>
         </div>
-        {daysInMonth.map((day, dayIndex) => {
+        {scheduleDays.map((day, dayIndex) => {
           const dayKey = calendarDateKey(day);
           const startingTasks = positionedTasks.filter((task) => task.visibleStartKey === dayKey);
           return (
@@ -467,12 +511,13 @@ export default function SchedulePage() {
                 ref={stickyDaysRef}
                 className="grid h-full will-change-transform"
                 style={{
-                  gridTemplateColumns: `repeat(${daysInMonth.length}, minmax(28px, 1fr))`,
-                  minWidth: `${daysInMonth.length * 28}px`,
+                  gridTemplateColumns: `repeat(${scheduleDays.length}, ${dayColumnWidth}px)`,
+                  width: `${dayColumnWidth * scheduleDays.length}px`,
                 }}
               >
-              {daysInMonth.map((d, i) => (
-                <button
+              {scheduleDays.map((d, i) => {
+                const isExtensionDay = d.getMonth() !== currentMonth;
+                return <button
                   type="button"
                   key={i}
                   onClick={() => setSelectedDayKey(calendarDateKey(d))}
@@ -481,17 +526,31 @@ export default function SchedulePage() {
                     isToday(d) ? "bg-blue-100 text-blue-700" : isWeekend(d) ? "bg-gray-100 text-gray-500" : "text-gray-600"
                   }`}
                 >
-                  <div>{d.getDate()}</div>
+                  <div>{isExtensionDay ? `${d.getDate()}/${d.getMonth() + 1}` : d.getDate()}</div>
                   <div data-i18n-ignore className="text-[9px] font-normal">{weekdayLabels[d.getDay()]}</div>
                   {isToday(d) && <div data-i18n-ignore className="text-[9px] text-blue-500">{lang === "ja" ? "今日" : "H.nay"}</div>}
-                </button>
-              ))}
+                </button>;
+              })}
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-b-[7px]" onScroll={syncStickyDays}>
-            <div className="min-w-[800px]" style={{ minWidth: `${200 + daysInMonth.length * 28}px` }}>
+          <div
+            ref={scheduleScrollRef}
+            className="cursor-grab overflow-x-auto rounded-b-[7px] active:cursor-grabbing"
+            onScroll={syncStickyDays}
+            onPointerDown={startHorizontalDrag}
+            onPointerMove={moveHorizontalDrag}
+            onPointerUp={endHorizontalDrag}
+            onPointerCancel={endHorizontalDrag}
+            onClickCapture={(event) => {
+              if (!horizontalDragRef.current.dragged) return;
+              event.preventDefault();
+              event.stopPropagation();
+              horizontalDragRef.current.dragged = false;
+            }}
+          >
+            <div className="min-w-[800px]" style={{ width: `${scheduleContentWidth}px` }}>
 
             {viewMode === "employees" ? employees.map(renderEmployeeRow) : (
               <>

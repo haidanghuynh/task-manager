@@ -69,7 +69,8 @@ task-manager/
 
 `src/app/(authenticated)/layout.tsx` bọc các trang trên bằng session, ngôn ngữ
 và sidebar. `src/proxy.ts` chuyển tài khoản chưa đăng nhập hoặc đã bị khóa về
-`/login`.
+`/login`. Route `/` và đăng nhập thành công đưa tài khoản có quyền `SCHEDULE_VIEW` tới `/schedule`;
+tài khoản không có quyền này dùng `/dashboard` làm trang dự phòng.
 
 ## API
 

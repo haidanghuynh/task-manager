@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
 
   const [year, monthNum] = month ? month.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
   const start = new Date(year, monthNum - 1, 1);
-  const end = new Date(year, monthNum, 0, 23, 59, 59);
+  // Keep cross-month tasks visible in the schedule's seven-day extension.
+  const end = new Date(year, monthNum, 7, 23, 59, 59);
 
   const where: any = {
     deletedAt: null,

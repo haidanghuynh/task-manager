@@ -28,7 +28,7 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Tên đăng nhập hoặc mật khẩu không đúng");
     } else {
-      router.push("/dashboard");
+      router.push("/");
       router.refresh();
     }
   }

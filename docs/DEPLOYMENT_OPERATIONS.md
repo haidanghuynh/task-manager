@@ -91,3 +91,10 @@ sudo task-manager-reset-admin-password
 ```
 
 Chỉ đổi password Admin tồn tại (min 8), không tạo/nâng quyền, không cần restart.
+
+## Bật/tắt trợ lý AI
+
+Đặt `AI_ASSISTANT_ENABLED`, `AI_MODEL`, `DEEPSEEK_API_KEY` trong
+`/etc/task-manager/task-manager.env`, rồi restart service. Không cần migration/seed; chỉ đổi env không
+cần build lại. Server phải kết nối outbound HTTPS tới `api.deepseek.com:443`. Xem
+[`AI_ASSISTANT.md`](AI_ASSISTANT.md).

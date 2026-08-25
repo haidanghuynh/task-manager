@@ -289,6 +289,12 @@ DATABASE_URL=file:${DATA_DIR}/task-manager.db
 AUTH_SECRET=${AUTH_SECRET}
 AUTH_TRUST_HOST=true
 AUTH_URL=${PUBLIC_URL}
+AI_ASSISTANT_ENABLED=false
+AI_ASSISTANT_NAME=Tiểu Mỹ
+AI_MODEL=deepseek-v4-flash
+DEEPSEEK_API_KEY=
+AI_RATE_LIMIT_PER_MINUTE=10
+AI_DAILY_CAPACITY_HOURS=8
 EOF
 else
   say "Giu nguyen khoa bi mat va cap nhat URL truy cap trong: $ENV_FILE"

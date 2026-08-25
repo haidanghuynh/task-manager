@@ -83,3 +83,9 @@ own/team scope; test Admin, Manager tùy chỉnh và Employee sau khi đổi quy
 
 Trang `/settings/audit-logs` trong Cài đặt và API `/api/audit-logs` giới hạn cứng cho role `ADMIN`, không cấp qua danh sách quyền
 tùy chỉnh. Manager/Employee không nhìn thấy mục này trên sidebar và server trả `403` nếu gọi trực tiếp.
+
+## Trợ lý AI
+
+AI không nằm trong permission JSON tùy chỉnh. Khi `AI_ASSISTANT_ENABLED=true`, Admin và Manager được
+dùng; Employee luôn bị chặn. Riêng AI, Manager bị giới hạn cứng theo `teamId` dù một số API nghiệp vụ
+khác hiện còn cho Manager phạm vi rộng. Manager thiếu team không thể gọi chat. Tool AI chỉ đọc.

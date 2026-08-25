@@ -78,3 +78,9 @@ mất hiệu lực.
 - UI cũ còn bộ dịch DOM tương thích; UI mới nên dùng key typed.
 - Chưa có unit/integration test runner; hiện dựa lint, build và manual regression.
 - Một số route còn `any`; nên giảm dần khi sửa đúng khu vực.
+
+## Trợ lý AI
+
+Chatbox AI là component toàn cục trong authenticated layout nhưng chỉ hiện khi feature flag bật và role
+là Admin/Manager. `/api/features` công bố trạng thái an toàn cho UI; `/api/ai/chat` gọi DeepSeek và các
+tool Prisma chỉ đọc. Xem [`AI_ASSISTANT.md`](AI_ASSISTANT.md).

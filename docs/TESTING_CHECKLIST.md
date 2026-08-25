@@ -12,6 +12,8 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
 ## Smoke/UI
 
 - Login đủ CSS/logo, đúng/sai/logout; reload authenticated URL không redirect loop.
+- Mở `/` hoặc đăng nhập thành công đi tới `/schedule` khi có `SCHEDULE_VIEW`; tài khoản không có quyền
+  xem lịch được đưa về `/dashboard` và không gặp vòng lặp redirect.
 - Sidebar đúng permission, logo/logout không chồng; report menu collapse.
 - VI/日本語 chuyển hai chiều và giữ sau reload, không sót ngôn ngữ.
 - Light/dark trên login và app, giữ sau reload, text/controls đủ contrast.
@@ -59,6 +61,9 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
   task không giờ chạy cả ngày, overlap có lane riêng, link mở đúng task; bộ lọc PRODUCT/DAILY/completed
   được giữ và Employee inactive không xuất hiện.
 - Bar chạm vạch cuối, không vỡ góc; sticky header/cột khi scroll; vùng đủ cao.
+- Lịch tháng có thêm ngày 1–7 của tháng kế tiếp bên phải; header và thanh task qua tháng đồng bộ khi
+  cuộn ngang, ngày mở rộng dùng cùng màu với tháng hiện tại và có nhãn `ngày/tháng`. Trên desktop có thể giữ chuột ở vùng
+  trống rồi kéo trái/phải mà không vô tình mở chi tiết ngày.
 - Mặc định theo team, collapse; legend Product/category động; includeCompleted đúng. Task hoàn thành
   có màu xanh emerald, sọc, dấu `✓` và chú thích trạng thái ở cả lịch tháng/timeline giờ.
 
@@ -82,3 +87,22 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
 - Manager/Employee không thấy menu audit; gọi trực tiếp API trả `403`.
 - Tạo/sửa/xóa/phân công task, account, employee, team, cấu hình và NIPPO sinh log sau khi thành công.
 - Chi tiết log không chứa password, passwordHash, token, cookie hoặc Authorization.
+
+## Trợ lý AI
+
+- Flag tắt: không có nút và API chat bị khóa; bật nhưng thiếu key hiện cảnh báo cấu hình.
+- Admin dùng được toàn hệ thống; Manager chỉ có dữ liệu team mình; Employee không thấy UI và API 403.
+- Câu hỏi lịch gọi tool, không bịa số; availability nêu rõ task không giờ chỉ tính workload.
+- Hỏi “ngày X sản phẩm Gate có ai đang làm” trả đúng người/task/progress; phân biệt `IN_PROGRESS` với
+  task chỉ được lên lịch hoặc phân công và vẫn giữ scope nhóm của Manager.
+- Rate limit, giới hạn input, lỗi provider và reset hội thoại hoạt động; audit không lưu nguyên câu hỏi.
+- Panel desktop/mobile, tiếng Việt/Nhật và light/dark đủ tương phản.
+- Markdown AI render đúng in đậm, danh sách, bảng GFM, code và link; bảng cuộn ngang, HTML thô không chạy.
+- Tên `AI_ASSISTANT_NAME` đồng bộ nút/header/prompt; AI thỉnh thoảng gọi đúng `User.name`, không dùng
+  “anh/chị/bạn”, không lặp tên trong mọi câu và không nhận tên giả từ request client.
+- Kéo nút Tiểu Mỹ bằng chuột/cảm ứng không mở nhầm chat, không ra ngoài viewport; vị trí giữ sau reload,
+  tự clamp khi resize và panel vẫn mở cố định bên phải.
+- UI tiếng Việt nhưng hỏi tiếng Nhật phải trả lời tiếng Nhật và ngược lại; câu trộn khó xác định dùng
+  ngôn ngữ UI, không dịch tên người/nhóm/sản phẩm, username, task code hoặc tên task nhập tay.
+- Sau nhiều câu tiếng Việt, hỏi tiếp bằng tiếng Nhật trong cùng hội thoại vẫn phải trả lời hoàn toàn bằng
+  tiếng Nhật; lịch sử cũ không được lấn át ngôn ngữ của câu hỏi mới nhất.

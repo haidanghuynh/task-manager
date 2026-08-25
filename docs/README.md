@@ -18,6 +18,7 @@ AI mới nên bắt đầu từ [`AI_CONTEXT.md`](../AI_CONTEXT.md).
 | [WAITING_TASK_FLOW.md](WAITING_TASK_FLOW.md) | Task chờ phân công chi tiết |
 | [I18N.md](I18N.md) | Quy ước dịch Việt/Nhật chi tiết |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Tài liệu cấu trúc cũ để tham khảo bổ sung |
+| [AI_ASSISTANT.md](AI_ASSISTANT.md) | Feature flag, DeepSeek, phân quyền, tool và vận hành chatbox AI |
 
 ## Nguồn sự thật
 

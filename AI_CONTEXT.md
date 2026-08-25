@@ -76,3 +76,10 @@ nhật lại tài liệu trong cùng commit.
 - Commit đã push gần nhất: `ed5c461 feat: manage daily work categories`
 - Có thể có file local không theo dõi: `.agents/`, `.claude/`, `.windsurf/`, `.local-logs/`,
   `skills-lock.json`, `temp-test.txt`. Không dùng `git add .`; xem `docs/GIT_WORKFLOW.md`.
+
+## Trợ lý AI tùy chọn
+
+- Mặc định tắt bằng `AI_ASSISTANT_ENABLED=false`; API key chỉ ở server.
+- Chỉ Admin/Manager được dùng. Manager luôn bị ép theo `teamId`; Employee bị ẩn UI và API trả 403.
+- Tool AI chỉ đọc lịch/khối lượng/xung đột, không có mutation. Audit chỉ lưu metadata, không lưu câu hỏi.
+- Chi tiết cấu hình và kiểm thử ở [`docs/AI_ASSISTANT.md`](docs/AI_ASSISTANT.md).

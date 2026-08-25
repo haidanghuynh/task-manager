@@ -8,6 +8,7 @@ export type AppRole = (typeof APP_ROLES)[number];
 
 export interface AppUser {
   id: string;
+  name: string;
   role: AppRole;
   employeeId: string | null;
   teamId: string | null;
@@ -25,6 +26,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     where: { id: sessionUser.id },
     select: {
       id: true,
+      name: true,
       role: true,
       permissions: true,
       employeeId: true,
@@ -44,6 +46,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
 
   return {
     id: user.id,
+    name: user.name,
     role: user.role as AppRole,
     employeeId: user.employeeId,
     teamId: user.employee?.teamId ?? null,
