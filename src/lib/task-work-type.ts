@@ -6,6 +6,7 @@ export const DAILY_WORK_CATEGORIES = [
   "SUPPORT",
   "DOCUMENTATION",
   "REPORT",
+  "PRACTICE",
   "OTHER",
 ] as const;
 
@@ -19,6 +20,7 @@ export const DEFAULT_DAILY_WORK_OPTIONS: DailyWorkCategoryOption[] = [
   { code: "SUPPORT", nameVi: "Hỗ trợ", nameJa: "サポート", color: DAILY_WORK_COLOR },
   { code: "DOCUMENTATION", nameVi: "Tài liệu", nameJa: "資料作成", color: DAILY_WORK_COLOR },
   { code: "REPORT", nameVi: "Báo cáo", nameJa: "報告", color: DAILY_WORK_COLOR },
+  { code: "PRACTICE", nameVi: "Luyện tập", nameJa: "練習", color: DAILY_WORK_COLOR },
 ];
 
 export function dailyWorkLabel(category: string | null | undefined, lang: "vi" | "ja" = "vi", options: DailyWorkCategoryOption[] = DEFAULT_DAILY_WORK_OPTIONS) {

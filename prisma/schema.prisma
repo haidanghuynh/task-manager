@@ -124,7 +124,7 @@ model Task {
   taskName          String
   description       String?
   workType          String    @default("PRODUCT") // PRODUCT, DAILY
-  dailyCategory     String?   // MEETING, TRAINING, SUPPORT, DOCUMENTATION, REPORT, OTHER
+  dailyCategory     String?   // MEETING, TRAINING, SUPPORT, DOCUMENTATION, REPORT, PRACTICE, OTHER
   productId         String?
   currentAssigneeId String?
   assignmentGroupId String?   // Links per-person copies created from one multi-assignee DAILY task
