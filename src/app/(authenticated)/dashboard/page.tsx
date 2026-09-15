@@ -181,7 +181,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       },
     });
 
-    const metrics = (tasks: Array<{ status: string; plannedEndDate: Date; workType: string }>) => {
+    const metrics = (tasks: Array<{ status: string; plannedEndDate: Date | null; workType: string }>) => {
       const total = tasks.length;
       const completed = tasks.filter((task) => task.status === "COMPLETED").length;
       return {
@@ -191,7 +191,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
         waiting: tasks.filter((task) => task.status === "WAITING").length,
         cancelled: tasks.filter((task) => task.status === "CANCELLED").length,
-        overdue: tasks.filter((task) => isOverdue(task.plannedEndDate, task.status, null, now, task.workType)).length,
+        overdue: tasks.filter((task) => Boolean(task.plannedEndDate && isOverdue(task.plannedEndDate, task.status, null, now, task.workType))).length,
         completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
       };
     };
@@ -205,7 +205,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ...metrics(employee.tasks),
     })).sort(sortRanking);
 
-    const groupedTeams = new Map<string, { id: string; name: string; memberCount: number; tasks: Array<{ status: string; plannedEndDate: Date; workType: string }> }>();
+    const groupedTeams = new Map<string, { id: string; name: string; memberCount: number; tasks: Array<{ status: string; plannedEndDate: Date | null; workType: string }> }>();
     for (const employee of employees) {
       const team = employee.team || { id: "unassigned", name: "Chưa có nhóm" };
       const existing = groupedTeams.get(team.id) || { ...team, memberCount: 0, tasks: [] };

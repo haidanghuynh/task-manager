@@ -39,6 +39,8 @@ nhật lại tài liệu trong cùng commit.
 - Manager có `DAILY_TASK_CREATE` được chọn nhiều người trong nhóm cho DAILY dù không có `TASK_ASSIGN`.
   Thiếu `TASK_ASSIGN` thì Manager phải chọn ít nhất một người, không được tạo DAILY chưa phân công.
 - Task chưa phân công chỉ ở `/waiting-tasks`; task có assignee mới vào lịch chính.
+- `Task.plannedStartDate`/`plannedEndDate` nullable: task "chưa có thời hạn" khi cả hai ngày trống. Task
+  này chỉ hiển thị ở phần cuối Lịch task chờ và không được phân công cho tới khi nhập đủ ngày.
 - Ở `/tasks`, filter `status` và `workType` độc lập; status trống không được tự loại DAILY, workType
   trống phải gồm PRODUCT + DAILY. List/group/export phải gửi cùng filter.
 - Lịch tháng có dialog timeline 24 giờ khi bấm tiêu đề/ô ngày; hàng giữ theo nhóm/nhân viên và thanh
@@ -82,4 +84,6 @@ nhật lại tài liệu trong cùng commit.
 - Mặc định tắt bằng `AI_ASSISTANT_ENABLED=false`; API key chỉ ở server.
 - Chỉ Admin/Manager được dùng. Manager luôn bị ép theo `teamId`; Employee bị ẩn UI và API trả 403.
 - Tool AI chỉ đọc lịch/khối lượng/xung đột, không có mutation. Audit chỉ lưu metadata, không lưu câu hỏi.
+- AI phân loại fact/analysis, chỉ bật thinking cho câu đề xuất; tool deadline dùng quy tắc quá hạn chung.
+  Page context từ client chỉ hỗ trợ hội thoại, không thay thế scope/authorization ở server.
 - Chi tiết cấu hình và kiểm thử ở [`docs/AI_ASSISTANT.md`](docs/AI_ASSISTANT.md).

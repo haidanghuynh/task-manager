@@ -129,8 +129,8 @@ model Task {
   currentAssigneeId String?
   assignmentGroupId String?   // Links per-person copies created from one multi-assignee DAILY task
   createdById       String
-  plannedStartDate  DateTime
-  plannedEndDate    DateTime
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
   plannedStartTime  String?
   plannedEndTime    String?
   actualStartDate   DateTime?

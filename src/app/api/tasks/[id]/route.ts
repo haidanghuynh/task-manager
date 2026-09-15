@@ -154,9 +154,17 @@ export async function PATCH(
       (updateData as Record<string, unknown>)[field] = value;
     }
 
-    const plannedStart = (updateData.plannedStartDate as Date | undefined) ?? task.plannedStartDate;
-    const plannedEnd = (updateData.plannedEndDate as Date | undefined) ?? task.plannedEndDate;
-    if (plannedEnd < plannedStart) {
+    const startProvided = Object.prototype.hasOwnProperty.call(updateData, "plannedStartDate");
+    const endProvided = Object.prototype.hasOwnProperty.call(updateData, "plannedEndDate");
+    const plannedStart = startProvided ? (updateData.plannedStartDate as Date | null) : task.plannedStartDate;
+    const plannedEnd = endProvided ? (updateData.plannedEndDate as Date | null) : task.plannedEndDate;
+    if (Boolean(plannedStart) !== Boolean(plannedEnd)) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Planned start and end date must be provided together, or both left empty" } },
+        { status: 400 },
+      );
+    }
+    if (plannedStart && plannedEnd && plannedEnd < plannedStart) {
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "End date cannot be before start date" } },
         { status: 400 },
@@ -219,6 +227,8 @@ export async function PATCH(
       finalWorkType === "DAILY"
       && finalStartTime
       && finalEndTime
+      && plannedStart
+      && plannedEnd
       && plannedStart.toDateString() === plannedEnd.toDateString()
       && String(finalEndTime) < String(finalStartTime)
     ) {
@@ -280,12 +290,8 @@ export async function PATCH(
 
     // Check overlaps if dates or assignee changed
     let overlaps: any[] = [];
-    if (updateData.plannedStartDate || updateData.plannedEndDate) {
-      const start = plannedStart;
-      const end = plannedEnd;
-      if (task.currentAssigneeId) {
-        overlaps = await checkOverlap(task.currentAssigneeId, start, end, id);
-      }
+    if (plannedStart && plannedEnd && task.currentAssigneeId) {
+      overlaps = await checkOverlap(task.currentAssigneeId, plannedStart, plannedEnd, id);
     }
 
     return NextResponse.json({

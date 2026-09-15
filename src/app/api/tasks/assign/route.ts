@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
   if (tasks.some((task) => task.currentAssigneeId)) {
     return error(409, "TASK_ALREADY_ASSIGNED", "Only unassigned tasks can be assigned in this flow");
   }
+  if (tasks.some((task) => !task.plannedStartDate || !task.plannedEndDate)) {
+    return error(400, "TASK_NO_DEADLINE", "Tasks without planned start and end dates cannot be assigned; set the dates first");
+  }
 
   const assignedAt = new Date();
   await prisma.$transaction(async (tx) => {
@@ -69,6 +72,7 @@ export async function POST(req: NextRequest) {
 
   const overlaps = [];
   for (const task of tasks) {
+    if (!task.plannedStartDate || !task.plannedEndDate) continue;
     const taskOverlaps = await checkOverlap(employeeId, task.plannedStartDate, task.plannedEndDate, task.id);
     if (taskOverlaps.length > 0) overlaps.push({ taskId: task.id, count: taskOverlaps.length });
   }

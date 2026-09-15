@@ -83,6 +83,10 @@ Lịch task chờ chỉ lấy task có `currentAssigneeId = null`. Lịch phân 
 chỉ đặt task vào hàng nhân viên sau khi `currentAssigneeId` có giá trị. Vì vậy
 một task không xuất hiện đồng thời ở cả hai lịch.
 
+Khi sửa task chờ và xóa cả `plannedStartDate` lẫn `plannedEndDate`, task được xem là
+"chưa có thời hạn" và được liệt kê ở phần riêng cuối Lịch task chờ (nhãn "Task chưa có
+thời hạn") thay vì hiển thị trên grid tháng.
+
 ## Tạo và import
 
 Task chờ cần có tối thiểu:
@@ -92,6 +96,9 @@ Task chờ cần có tối thiểu:
 - ngày bắt đầu dự kiến;
 - ngày kết thúc dự kiến, nếu để trống sẽ bằng ngày bắt đầu;
 - phần mã phía sau là tùy chọn.
+
+Tạo và import vẫn yêu cầu ngày bắt đầu dự kiến. Chỉ thao tác sửa mới cho phép xóa cả hai
+ngày để biến task thành "chưa có thời hạn".
 
 CSV giữ cấu trúc danh sách task hiện tại:
 
@@ -125,6 +132,6 @@ hiển thị tại màn hình **Task chờ phân công** để tránh trùng d�
 - `POST /api/tasks` với `assigneeId` rỗng: tạo task chờ.
 - `GET /api/tasks?assignment=unassigned`: lấy task chờ.
 - `POST /api/tasks/bulk`: import; `assigneeCode` có thể rỗng.
-- `POST /api/tasks/assign`: phân công nhiều task chờ.
+- `POST /api/tasks/assign`: phân công nhiều task chờ; task chưa có thời hạn bị chặn (phải nhập ngày trước).
 - `POST /api/tasks/[id]/unassign`: thu hồi một task đã giao về hàng chờ.
 - `DELETE /api/tasks/[id]`: xóa mềm task chờ.

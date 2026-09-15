@@ -36,8 +36,8 @@ interface WaitingTask {
   dailyCategory: string | null;
   productId: string | null;
   product: Product | null;
-  plannedStartDate: string;
-  plannedEndDate: string;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
   priority: string;
   status: string;
   note: string | null;
@@ -187,6 +187,8 @@ export default function WaitingTasksPage() {
     creating: "作成中...",
     totalWaiting: "未割り当て合計",
     totalDailyWaiting: "日常業務の未割り当て合計",
+    noDeadline: "期限なしのタスク",
+    noDeadlineHint: "期限なし",
   } : {
     title: "Task chờ phân công",
     description: "Tạo và kiểm tra task chưa có người phụ trách, sau đó phân công hàng loạt.",
@@ -225,6 +227,8 @@ export default function WaitingTasksPage() {
     creating: "Đang tạo...",
     totalWaiting: "Tổng task chờ",
     totalDailyWaiting: "Tổng công việc hằng ngày chờ",
+    noDeadline: "Task chưa có thời hạn",
+    noDeadlineHint: "Chưa có thời hạn",
   };
 
   async function loadTasks() {
@@ -271,7 +275,9 @@ export default function WaitingTasksPage() {
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
   const monthEnd = new Date(month.getFullYear(), month.getMonth(), daysInMonth, 23, 59, 59);
+  const noDeadlineTasks = filteredTasks.filter((task) => !task.plannedStartDate || !task.plannedEndDate);
   const timelineTasks = filteredTasks.filter((task) => {
+    if (!task.plannedStartDate || !task.plannedEndDate) return false;
     const start = new Date(task.plannedStartDate);
     const end = new Date(task.plannedEndDate);
     return start <= monthEnd && end >= monthStart;
@@ -372,7 +378,7 @@ export default function WaitingTasksPage() {
 
   function exportCsv() {
     const header = ["taskCode", "taskName", "description", "productCode", "assigneeCode", "plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "status", "progress", "priority", "note", "workType", "dailyCategory"];
-    const rows = filteredTasks.map((task) => [task.taskCode, task.taskName, task.description, task.product?.code || "", "", toDateInput(new Date(task.plannedStartDate)), toDateInput(new Date(task.plannedEndDate)), "", "", task.status, 0, task.priority, task.note, task.workType, task.dailyCategory]);
+    const rows = filteredTasks.map((task) => [task.taskCode, task.taskName, task.description, task.product?.code || "", "", task.plannedStartDate ? toDateInput(new Date(task.plannedStartDate)) : "", task.plannedEndDate ? toDateInput(new Date(task.plannedEndDate)) : "", "", "", task.status, 0, task.priority, task.note, task.workType, task.dailyCategory]);
     const blob = new Blob(["\uFEFF", [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -383,8 +389,8 @@ export default function WaitingTasksPage() {
   }
 
   function taskBar(task: WaitingTask) {
-    const rawStart = new Date(task.plannedStartDate);
-    const rawEnd = new Date(task.plannedEndDate);
+    const rawStart = new Date(task.plannedStartDate!);
+    const rawEnd = new Date(task.plannedEndDate!);
     const visibleStart = rawStart < monthStart ? monthStart : rawStart;
     const visibleEnd = rawEnd > monthEnd ? monthEnd : rawEnd;
     const startDay = visibleStart.getDate();
@@ -448,13 +454,32 @@ export default function WaitingTasksPage() {
           <select value={productFilter} disabled={workTypeFilter === "DAILY"} onChange={(event) => { setProductFilter(event.target.value); if (event.target.value) setWorkTypeFilter("PRODUCT"); }} className="rounded border px-3 py-2 text-sm disabled:opacity-50"><option value="">{text.allProducts}</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>
           <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="rounded border px-3 py-2 text-sm"><option value="">{text.allPriorities}</option><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option></select>
         </div>
-        {filteredTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.empty}</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} /></th><th className="px-4 py-3">{text.task}</th><th className="px-4 py-3">{lang === "ja" ? "業務区分" : "Loại công việc"}</th><th className="px-4 py-3">{text.start}</th><th className="px-4 py-3">{text.end}</th><th className="px-4 py-3">{text.priority}</th><th className="px-4 py-3">{text.actions}</th></tr></thead><tbody className="divide-y">{filteredTasks.map((task) => { const canEditTask = task.workType === "DAILY" ? canEditDaily : canEditProduct; const canDeleteTask = task.workType === "DAILY" ? canDeleteDaily : canDeleteProduct; return <tr key={task.id} className="hover:bg-gray-50"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => toggleTask(task.id)} /></td><td className="px-4 py-3"><Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="mt-0.5 text-sm text-gray-900">{task.taskName}</p></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280" }} />{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedStartDate))}</td><td className="whitespace-nowrap px-4 py-3 text-xs">{toDateInput(new Date(task.plannedEndDate))}</td><td className="px-4 py-3 text-xs">{task.priority}</td><td className="whitespace-nowrap px-4 py-3">{canEditTask && <Link href={`/tasks/${task.id}`} className="mr-3 text-blue-600 hover:underline">{text.edit}</Link>}{canDeleteTask && <button type="button" onClick={() => deleteTask(task.id)} className="text-red-600 hover:underline">{text.delete}</button>}</td></tr>; })}</tbody></table></div>}
+        {filteredTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.empty}</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th className="px-4 py-3"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} /></th><th className="px-4 py-3">{text.task}</th><th className="px-4 py-3">{lang === "ja" ? "業務区分" : "Loại công việc"}</th><th className="px-4 py-3">{text.start}</th><th className="px-4 py-3">{text.end}</th><th className="px-4 py-3">{text.priority}</th><th className="px-4 py-3">{text.actions}</th></tr></thead><tbody className="divide-y">{filteredTasks.map((task) => { const canEditTask = task.workType === "DAILY" ? canEditDaily : canEditProduct; const canDeleteTask = task.workType === "DAILY" ? canDeleteDaily : canDeleteProduct; return <tr key={task.id} className="hover:bg-gray-50"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => toggleTask(task.id)} /></td><td className="px-4 py-3"><Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="mt-0.5 text-sm text-gray-900">{task.taskName}</p></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280" }} />{task.workType === "DAILY" ? dailyWorkLabel(task.dailyCategory, lang, dailyCategories) : task.product?.name}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs">{task.plannedStartDate ? toDateInput(new Date(task.plannedStartDate)) : "—"}</td><td className="whitespace-nowrap px-4 py-3 text-xs">{task.plannedEndDate ? toDateInput(new Date(task.plannedEndDate)) : "—"}</td><td className="px-4 py-3 text-xs">{task.priority}</td><td className="whitespace-nowrap px-4 py-3">{canEditTask && <Link href={`/tasks/${task.id}`} className="mr-3 text-blue-600 hover:underline">{text.edit}</Link>}{canDeleteTask && <button type="button" onClick={() => deleteTask(task.id)} className="text-red-600 hover:underline">{text.delete}</button>}</td></tr>; })}</tbody></table></div>}
         <div className="grid rounded-b-lg border-t bg-gray-50 p-4 gap-3 md:grid-cols-[auto_1fr_1fr_auto]"><span className="self-center text-sm font-medium">{text.selected}: {selectedCount}</span><select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="rounded border bg-white px-3 py-2 text-sm"><option value="">{text.employee}...</option>{employees.filter((employee) => employee.isActive).map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} ({employee.employeeCode}){employee.team?.name ? ` — ${employee.team.name}` : ""}</option>)}</select><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder={text.reason} className="rounded border bg-white px-3 py-2 text-sm" /><button type="button" disabled={busy || !employeeId || selectedCount === 0} onClick={assignTasks} className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-40">{text.assign} ({selectedCount})</button></div>
       </section>
 
       <section className="rounded-lg border bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><h3 className="font-semibold text-gray-900">{text.timeline}</h3><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setCollapsedProducts(new Set())} className="rounded border px-2 py-1 text-xs">{text.expandAll}</button><button type="button" onClick={() => setCollapsedProducts(new Set(productGroups.map((group) => group.product.id)))} className="rounded border px-2 py-1 text-xs">{text.collapseAll}</button><button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded border px-3 py-1.5 text-sm">{text.previous}</button><button type="button" onClick={() => setMonth(new Date())} className="rounded border px-3 py-1.5 text-sm">{text.today}</button><span data-i18n-ignore className="min-w-24 self-center text-center font-semibold">{month.getMonth() + 1}/{month.getFullYear()}</span><button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded border px-3 py-1.5 text-sm">{text.next}</button></div></div>
-        {productGroups.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.noTimeline}</p> : <div className="overflow-x-auto"><div style={{ minWidth: TASK_COLUMN_WIDTH + daysInMonth * DAY_WIDTH }}><div className="sticky top-0 z-10 flex border-b bg-gray-50"><div className="shrink-0 border-r px-4 py-3 text-sm font-medium" style={{ width: TASK_COLUMN_WIDTH }}>{text.task}</div>{Array.from({ length: daysInMonth }, (_, index) => { const date = new Date(month.getFullYear(), month.getMonth(), index + 1); const today = toDateInput(date) === toDateInput(new Date()); return <div key={index} className={`shrink-0 border-r py-1 text-center text-xs ${today ? "bg-blue-100 font-bold text-blue-700" : ""}`} style={{ width: DAY_WIDTH }}><div>{index + 1}</div><div className="text-[10px] text-gray-400">{date.toLocaleDateString(lang === "ja" ? "ja-JP" : "vi-VN", { weekday: "short" })}</div></div>; })}</div>{productGroups.map(({ product, tasks: groupTasks }) => { const collapsed = collapsedProducts.has(product.id); return <div key={product.id}><button type="button" onClick={() => setCollapsedProducts((current) => { const next = new Set(current); if (next.has(product.id)) next.delete(product.id); else next.add(product.id); return next; })} className="flex w-full items-center gap-2 border-b bg-gray-100 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"><span>{collapsed ? "▸" : "▾"}</span><span className="h-3 w-3 rounded-full" style={{ backgroundColor: product.color }} /><span>{product.name}</span><span className="text-xs font-normal text-gray-500">({groupTasks.length} task)</span></button>{!collapsed && groupTasks.map((task) => <div key={task.id} className="flex border-b"><div className="shrink-0 border-r px-4 py-2" style={{ width: TASK_COLUMN_WIDTH }}><Link href={`/tasks/${task.id}`} className="block truncate font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="truncate text-xs text-gray-500">{task.taskName}</p></div><div className="relative h-11" style={{ width: daysInMonth * DAY_WIDTH, backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${DAY_WIDTH - 1}px, var(--color-gray-200) ${DAY_WIDTH - 1}px, var(--color-gray-200) ${DAY_WIDTH}px)` }}>{taskBar(task)}</div></div>)}</div>; })}</div></div>}
+        {productGroups.length === 0 && noDeadlineTasks.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">{text.noTimeline}</p> : <div className="overflow-x-auto"><div style={{ minWidth: TASK_COLUMN_WIDTH + daysInMonth * DAY_WIDTH }}><div className="sticky top-0 z-10 flex border-b bg-gray-50"><div className="shrink-0 border-r px-4 py-3 text-sm font-medium" style={{ width: TASK_COLUMN_WIDTH }}>{text.task}</div>{Array.from({ length: daysInMonth }, (_, index) => { const date = new Date(month.getFullYear(), month.getMonth(), index + 1); const today = toDateInput(date) === toDateInput(new Date()); return <div key={index} className={`shrink-0 border-r py-1 text-center text-xs ${today ? "bg-blue-100 font-bold text-blue-700" : ""}`} style={{ width: DAY_WIDTH }}><div>{index + 1}</div><div className="text-[10px] text-gray-400">{date.toLocaleDateString(lang === "ja" ? "ja-JP" : "vi-VN", { weekday: "short" })}</div></div>; })}</div>{productGroups.map(({ product, tasks: groupTasks }) => { const collapsed = collapsedProducts.has(product.id); return <div key={product.id}><button type="button" onClick={() => setCollapsedProducts((current) => { const next = new Set(current); if (next.has(product.id)) next.delete(product.id); else next.add(product.id); return next; })} className="flex w-full items-center gap-2 border-b bg-gray-100 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"><span>{collapsed ? "▸" : "▾"}</span><span className="h-3 w-3 rounded-full" style={{ backgroundColor: product.color }} /><span>{product.name}</span><span className="text-xs font-normal text-gray-500">({groupTasks.length} task)</span></button>{!collapsed && groupTasks.map((task) => <div key={task.id} className="flex border-b"><div className="shrink-0 border-r px-4 py-2" style={{ width: TASK_COLUMN_WIDTH }}><Link href={`/tasks/${task.id}`} className="block truncate font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link><p className="truncate text-xs text-gray-500">{task.taskName}</p></div><div className="relative h-11" style={{ width: daysInMonth * DAY_WIDTH, backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${DAY_WIDTH - 1}px, var(--color-gray-200) ${DAY_WIDTH - 1}px, var(--color-gray-200) ${DAY_WIDTH}px)` }}>{taskBar(task)}</div></div>)}</div>; })}</div></div>}
+        {noDeadlineTasks.length > 0 && (
+          <div className="border-t bg-white">
+            <div className="flex items-center gap-2 border-b bg-gray-100 px-4 py-2 text-left text-sm font-semibold">
+              <span>▾</span>
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "#9CA3AF" }} />
+              <span>{text.noDeadline}</span>
+              <span className="text-xs font-normal text-gray-500">({noDeadlineTasks.length})</span>
+            </div>
+            {noDeadlineTasks.map((task) => (
+              <div key={task.id} className="flex items-center gap-3 border-b px-4 py-2 text-sm">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: task.workType === "DAILY" ? dailyWorkColor(task.dailyCategory, dailyCategories) : task.product?.color || "#6B7280" }} />
+                <Link href={`/tasks/${task.id}`} className="font-mono text-xs text-blue-600 hover:underline">{task.taskCode}</Link>
+                <p className="truncate text-xs text-gray-500">{task.taskName}</p>
+                <span className="ml-auto text-xs italic text-gray-400">{text.noDeadlineHint}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
       </section>
     </div>
   );

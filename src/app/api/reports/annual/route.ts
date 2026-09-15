@@ -67,15 +67,17 @@ export async function GET(req: NextRequest) {
     if (task.status === "COMPLETED") emp.totalCompleted++;
     if (task.status === "CANCELLED") emp.cancelled++;
 
-    const plannedDays = Math.ceil((task.plannedEndDate.getTime() - task.plannedStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    emp.totalPlannedDays += plannedDays;
+    if (task.plannedStartDate && task.plannedEndDate) {
+      const plannedDays = Math.ceil((task.plannedEndDate.getTime() - task.plannedStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      emp.totalPlannedDays += plannedDays;
 
-    if (task.actualEndDate) {
-      const actualStart = task.actualStartDate ?? task.plannedStartDate;
-      const actualDays = Math.ceil((task.actualEndDate.getTime() - actualStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      emp.totalActualDays += actualDays;
-      if (task.actualEndDate <= task.plannedEndDate) emp.onTime++;
-      else emp.late++;
+      if (task.actualEndDate) {
+        const actualStart = task.actualStartDate ?? task.plannedStartDate;
+        const actualDays = Math.ceil((task.actualEndDate.getTime() - actualStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        emp.totalActualDays += actualDays;
+        if (task.actualEndDate <= task.plannedEndDate) emp.onTime++;
+        else emp.late++;
+      }
     }
 
     if (task.product?.code === "ZONE") emp.zoneTasks++;

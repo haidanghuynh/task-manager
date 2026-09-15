@@ -87,8 +87,8 @@ export default function TaskDetailPage() {
         workType: editData.workType,
         dailyCategory: editData.workType === "DAILY" ? editData.dailyCategory : null,
         productId: editData.workType === "PRODUCT" ? editData.productId : null,
-        plannedStartDate: editData.plannedStartDate?.slice(0, 10),
-        plannedEndDate: editData.plannedEndDate?.slice(0, 10),
+        plannedStartDate: editData.plannedStartDate ? editData.plannedStartDate.slice(0, 10) : null,
+        plannedEndDate: editData.plannedEndDate ? editData.plannedEndDate.slice(0, 10) : null,
         plannedStartTime: editData.workType === "DAILY" ? editData.plannedStartTime || null : null,
         plannedEndTime: editData.workType === "DAILY" ? editData.plannedEndTime || null : null,
         priority: editData.priority,
@@ -293,6 +293,8 @@ export default function TaskDetailPage() {
             <label className="text-sm">Kết thúc dự kiến
               <input type="date" value={editData.plannedEndDate?.slice(0, 10) || ""} onChange={(e) => setEditData({ ...editData, plannedEndDate: e.target.value })} className="mt-1 w-full rounded border px-3 py-2" />
             </label>
+            <p className="text-xs text-gray-400 md:col-span-2">{lang === "ja" ? "開始日と終了日を両方空欄にすると「期限なし」として扱われます。" : "Để trống cả ngày bắt đầu và kết thúc để đánh dấu task chưa có thời hạn."}</p>
+
             {editData.workType === "DAILY" && (
               <>
                 <label className="text-sm">{lang === "ja" ? "開始時刻（任意）" : "Giờ bắt đầu (không bắt buộc)"}
@@ -337,11 +339,11 @@ export default function TaskDetailPage() {
         </div>
         <div>
           <label className="text-xs text-gray-500">Ngày bắt đầu dự kiến</label>
-          <p className="font-medium mt-1">{formatDate(task.plannedStartDate)}{task.plannedStartTime ? ` ${task.plannedStartTime}` : ""}</p>
+          <p className="font-medium mt-1">{task.plannedStartDate ? formatDate(task.plannedStartDate) : "Chưa có thời hạn"}{task.plannedStartTime ? ` ${task.plannedStartTime}` : ""}</p>
         </div>
         <div>
           <label className="text-xs text-gray-500">Ngày kết thúc dự kiến</label>
-          <p className="font-medium mt-1">{formatDate(task.plannedEndDate)}{task.plannedEndTime ? ` ${task.plannedEndTime}` : ""}</p>
+          <p className="font-medium mt-1">{task.plannedEndDate ? formatDate(task.plannedEndDate) : "Chưa có thời hạn"}{task.plannedEndTime ? ` ${task.plannedEndTime}` : ""}</p>
         </div>
         {task.actualEndDate && (
           <div>

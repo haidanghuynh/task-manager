@@ -15,7 +15,7 @@ Mọi endpoint yêu cầu session trừ NextAuth. Thành công thường `{ succ
 | `/api/tasks/[id]` | DELETE | `TASK_DELETE` cho PRODUCT; `DAILY_TASK_DELETE` cho DAILY | Soft delete |
 | `/api/tasks/bulk` | POST | `TASK_IMPORT_EXPORT` | CSV tối đa 1.000 dòng |
 | `/api/tasks/bulk` | DELETE | Admin | Soft-delete hàng loạt |
-| `/api/tasks/assign` | POST | `TASK_ASSIGN` | Giao 1-200 task chờ |
+| `/api/tasks/assign` | POST | `TASK_ASSIGN` | Giao 1-200 task chờ; chặn task chưa có thời hạn |
 | `/api/tasks/[id]/reassign` | POST | `TASK_ASSIGN` | Đóng assignment cũ/tạo mới |
 | `/api/tasks/[id]/unassign` | POST | `TASK_ASSIGN` | Thu hồi; không completed/cancelled |
 | `/api/tasks/[id]/comments` | POST | edit hoặc own-update | Thêm bình luận |
@@ -33,6 +33,8 @@ POST: `taskName`, `description?`, `workType`, `dailyCategory?`, `productId?`, `t
 `.`, `_`, `-`. PATCH nhận các field cần đổi; client chi tiết chỉ gửi field có giá trị thay đổi để
 không validate lại dữ liệu legacy không liên quan. `taskCode` cho phép trùng và chỉ áp regex hiện tại
 khi chính mã được đổi. Có thể rút ngắn `plannedEndDate` nếu ngày mới vẫn bằng/sau `plannedStartDate`.
+Có thể xóa cả `plannedStartDate` và `plannedEndDate` (gửi `null`) để đánh dấu task "chưa có thời hạn";
+hai ngày phải cùng có hoặc cùng trống.
 COMPLETED tự progress 100/actual end.
 Đổi PRODUCT ↔ DAILY cần quyền sửa của cả hai loại. Import dòng DAILY cần đồng thời
 `TASK_IMPORT_EXPORT` và `DAILY_TASK_CREATE`.
@@ -127,7 +129,8 @@ API trả log mới nhất trước, danh sách giá trị lọc và pagination.
 - `GET /api/features`: cần đăng nhập; trả `aiAssistant`/`aiConfigured` đã xét role. Employee luôn nhận
   `aiAssistant=false`; Admin/Manager còn nhận `aiAssistantName` để UI và prompt dùng cùng một tên.
 - `POST /api/ai/chat`: feature flag bật và role Admin/Manager. Body gồm tối đa 12 `messages`,
-  `language: vi|ja`, `context.pathname?`. Manager thiếu team nhận 403; quá giới hạn nhận 429; chưa có
-  API key nhận 503. Response thành công trả `answer`, `toolsUsed`, `model`.
+  `language: vi|ja`, `context.pathname?`, `context.search?` và tối đa 20 giá trị `context.pageState?`.
+  Manager thiếu team nhận 403; quá giới hạn nhận 429; chưa có API key nhận 503. Response thành công
+  trả `answer`, `toolsUsed`, `model`, `queryMode` và `reasoningEnabled`.
 
 Endpoint AI chỉ đọc. Manager scope được áp tại từng tool, không tin `teamName` hoặc context từ client.

@@ -76,13 +76,11 @@ export async function reassignTask(
     return existing;
   });
 
-  // 5. Check overlap for new employee
-  const overlaps = await checkOverlap(
-    newEmployeeId,
-    task.plannedStartDate,
-    task.plannedEndDate,
-    taskId
-  );
+  // 5. Check overlap for new employee (only when the task has a planned date range)
+  let overlaps: any[] = [];
+  if (task.plannedStartDate && task.plannedEndDate) {
+    overlaps = await checkOverlap(newEmployeeId, task.plannedStartDate, task.plannedEndDate, taskId);
+  }
 
   return { overlaps };
 }

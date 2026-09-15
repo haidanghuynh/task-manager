@@ -37,6 +37,8 @@ hiện không khớp schema.
   riêng cùng group ID; không dùng field này để đồng bộ tiến độ hoặc trạng thái.
 - `Task.plannedStartTime`/`plannedEndTime` là text nullable `HH:mm`, chỉ dùng cho DAILY. Tách khỏi
   DateTime ngày để tránh lệch múi giờ giữa local và product.
+- `Task.plannedStartDate`/`plannedEndDate` nullable để biểu diễn task "chưa có thời hạn". Hai ngày phải
+  cùng có hoặc cùng trống; task chưa có thời hạn không được phân công cho tới khi nhập đủ ngày.
 - Migration `20260817113000_sync_account_employee_status` đồng bộ dữ liệu User/Employee cũ. Sau đó
   API account duy trì `User.isActive = Employee.isActive` cho hồ sơ liên kết.
 - NIPPO/absence unique theo Employee + ngày; xóa report cascade item; xóa task set taskId item null.
@@ -68,6 +70,8 @@ period: FULL | HALF_AM | HALF_PM
 20260814133000_add_nippo_reports
 20260814140000_backfill_nippo_permissions
 20260814170000_add_daily_work_categories
+20260914120000_add_practice_daily_category
+20260915031658_allow_null_task_dates
 ```
 
 Thay schema:

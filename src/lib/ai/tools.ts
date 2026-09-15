@@ -84,6 +84,25 @@ export const aiTools = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_task_risks",
+      description: "Find assigned active PRODUCT tasks that are overdue or due soon as of one date. Use this for deadline risk, late task, and upcoming due-date questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Reference date in YYYY-MM-DD format." },
+          dueWithinDays: { type: "integer", minimum: 0, maximum: 30, description: "Include tasks due from the reference date through this many days later; defaults to 7." },
+          product: { type: "string", description: "Optional product code or name." },
+          employee: { type: "string", description: "Optional employee code or full name." },
+          teamName: { type: "string", description: "Optional team name. Admin only; managers are always restricted to their own team." },
+        },
+        required: ["date"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 type ToolArgs = Record<string, unknown>;
@@ -120,6 +139,20 @@ function mergedMinutes(ranges: Array<[number, number]>) {
   return total + currentEnd - currentStart;
 }
 
+function normalizeLookup(value: string) {
+  return value.normalize("NFKC").trim().toLocaleLowerCase();
+}
+
+function findUniqueMatch<T>(items: T[], query: string, values: (item: T) => string[]) {
+  const requested = normalizeLookup(query);
+  const exact = items.find((item) => values(item).some((value) => normalizeLookup(value) === requested));
+  if (exact) return exact;
+  const partial = items.filter((item) => values(item).some((value) => normalizeLookup(value).includes(requested)));
+  if (partial.length === 1) return partial[0];
+  if (partial.length > 1) throw new Error("The requested name is ambiguous; use the full name or code");
+  return null;
+}
+
 async function resolveEmployeeScope(user: AppUser, teamNameValue: unknown) {
   let teamId: string | undefined;
   let teamName: string | undefined;
@@ -131,9 +164,8 @@ async function resolveEmployeeScope(user: AppUser, teamNameValue: unknown) {
     teamId = team.id;
     teamName = team.name;
   } else if (typeof teamNameValue === "string" && teamNameValue.trim()) {
-    const requested = teamNameValue.trim().toLocaleLowerCase();
     const teams = await prisma.team.findMany({ where: { isActive: true }, select: { id: true, name: true } });
-    const team = teams.find((item) => item.name.toLocaleLowerCase() === requested);
+    const team = findUniqueMatch(teams, teamNameValue, (item) => [item.name]);
     if (!team) throw new Error("Team not found");
     teamId = team.id;
     teamName = team.name;
@@ -170,6 +202,9 @@ async function getAvailableMembers(user: AppUser, args: ToolArgs) {
         plannedStartTime: true,
         plannedEndTime: true,
         status: true,
+        priority: true,
+        progress: true,
+        plannedEndDate: true,
       },
     }),
     prisma.nippoAbsence.findMany({
@@ -188,6 +223,15 @@ async function getAvailableMembers(user: AppUser, args: ToolArgs) {
     const absence = absences.find((item) => item.employeeId === employee.id);
     const absenceMinutes = absence?.period === "FULL" ? capacityMinutes : absence ? capacityMinutes / 2 : 0;
     const availableMinutes = Math.max(0, capacityMinutes - busyMinutes - absenceMinutes);
+    const highPriorityTaskCount = assigned.filter((task) => task.priority === "URGENT" || task.priority === "HIGH").length;
+    const overdueTaskCount = assigned.filter((task) =>
+      task.workType === "PRODUCT"
+      && task.status !== "WAITING"
+      && task.plannedEndDate !== null && task.plannedEndDate < date,
+    ).length;
+    const averageProgress = assigned.length > 0
+      ? Math.round(assigned.reduce((total, task) => total + task.progress, 0) / assigned.length)
+      : null;
 
     return {
       employeeCode: employee.employeeCode,
@@ -197,15 +241,23 @@ async function getAvailableMembers(user: AppUser, args: ToolArgs) {
       timedBusyHours: Number((busyMinutes / 60).toFixed(2)),
       activeTaskCount: assigned.length,
       untimedTaskCount: assigned.filter((task) => !task.plannedStartTime || !task.plannedEndTime).length,
+      highPriorityTaskCount,
+      overdueTaskCount,
+      averageProgress,
       absence: absence ? { period: absence.period, type: absence.absenceType } : null,
     };
-  }).sort((left, right) => right.availableHoursEstimate - left.availableHoursEstimate || left.activeTaskCount - right.activeTaskCount);
+  }).sort((left, right) =>
+    right.availableHoursEstimate - left.availableHoursEstimate
+    || left.overdueTaskCount - right.overdueTaskCount
+    || left.highPriorityTaskCount - right.highPriorityTaskCount
+    || left.activeTaskCount - right.activeTaskCount,
+  ).map((member, index) => ({ ...member, availabilityRank: index + 1 }));
 
   return {
     date: dateValue,
     team: scope.teamName,
     capacityHoursPerDay: getAiDailyCapacityHours(),
-    calculationNote: "Availability is an estimate based on timed DAILY work and recorded absence. Untimed PRODUCT/DAILY tasks are reported as workload but do not subtract exact hours.",
+    calculationNote: "The rank is an estimate ordered by available timed capacity, then overdue/high-priority/active workload. Untimed PRODUCT/DAILY tasks cannot subtract exact hours and must still be considered before assignment.",
     members,
   };
 }
@@ -303,9 +355,8 @@ async function getTaskActivity(user: AppUser, args: ToolArgs) {
   };
 
   if (typeof args.product === "string" && args.product.trim()) {
-    const requested = args.product.trim().toLocaleLowerCase();
     const products = await prisma.product.findMany({ select: { id: true, code: true, name: true } });
-    const product = products.find((item) => item.code.toLocaleLowerCase() === requested || item.name.toLocaleLowerCase() === requested);
+    const product = findUniqueMatch(products, args.product, (item) => [item.code, item.name]);
     if (!product) throw new Error("Product not found");
     where.productId = product.id;
   }
@@ -319,12 +370,9 @@ async function getTaskActivity(user: AppUser, args: ToolArgs) {
 
   let selectedEmployeeId: string | undefined;
   if (typeof args.employee === "string" && args.employee.trim()) {
-    const requested = args.employee.trim().toLocaleLowerCase();
-    const exact = scope.employees.find((employee) => employee.employeeCode.toLocaleLowerCase() === requested || employee.fullName.toLocaleLowerCase() === requested);
-    const matches = exact ? [exact] : scope.employees.filter((employee) => employee.employeeCode.toLocaleLowerCase().includes(requested) || employee.fullName.toLocaleLowerCase().includes(requested));
-    if (matches.length === 0) throw new Error("Employee not found in the authorized scope");
-    if (matches.length > 1) throw new Error("Employee name is ambiguous; use the employee code or full name");
-    selectedEmployeeId = matches[0].id;
+    const employee = findUniqueMatch(scope.employees, args.employee, (item) => [item.employeeCode, item.fullName]);
+    if (!employee) throw new Error("Employee not found in the authorized scope");
+    selectedEmployeeId = employee.id;
   }
 
   const assignment = args.assignment === "assigned" || args.assignment === "unassigned" || args.assignment === "any" ? args.assignment : "any";
@@ -343,10 +391,11 @@ async function getTaskActivity(user: AppUser, args: ToolArgs) {
     where.currentAssigneeId = null;
   }
 
-  const [tasks, totalMatched] = await Promise.all([
+  const [tasks, summaryTasks] = await Promise.all([
     prisma.task.findMany({
       where,
       select: {
+        id: true,
         taskCode: true,
         taskName: true,
         workType: true,
@@ -364,17 +413,31 @@ async function getTaskActivity(user: AppUser, args: ToolArgs) {
       orderBy: [{ plannedStartDate: "asc" }, { taskCode: "asc" }],
       take: 100,
     }),
-    prisma.task.count({ where }),
+    prisma.task.findMany({
+      where,
+      select: { currentAssigneeId: true, productId: true, workType: true, status: true },
+    }),
   ]);
+  const totalMatched = summaryTasks.length;
 
-  const byStatus = Object.fromEntries(allowedStatuses.map((status) => [status, tasks.filter((task) => task.status === status).length]));
-  const productCodes = tasks.map((task) => task.product?.code || (task.workType === "DAILY" ? "DAILY" : "NO_PRODUCT"));
+  const summaryProductIds = [...new Set(summaryTasks.map((task) => task.productId).filter((id): id is string => Boolean(id)))];
+  const summaryProducts = summaryProductIds.length > 0
+    ? await prisma.product.findMany({ where: { id: { in: summaryProductIds } }, select: { id: true, code: true } })
+    : [];
+  const productCodeById = new Map(summaryProducts.map((product) => [product.id, product.code]));
+  const employeeById = new Map(scope.employees.map((employee) => [employee.id, employee]));
+  const byStatus = Object.fromEntries(allowedStatuses.map((status) => [status, summaryTasks.filter((task) => task.status === status).length]));
+  const productCodes = summaryTasks.map((task) => task.productId ? productCodeById.get(task.productId) || "NO_PRODUCT" : (task.workType === "DAILY" ? "DAILY" : "NO_PRODUCT"));
   const byProduct = [...new Set(productCodes)]
     .map((code) => ({ code, count: productCodes.filter((taskCode) => taskCode === code).length }));
-  const employeeKeys = [...new Set(tasks.filter((task) => task.currentAssignee).map((task) => task.currentAssignee!.employeeCode))];
-  const byEmployee = employeeKeys.map((employeeCode) => {
-    const employeeTasks = tasks.filter((task) => task.currentAssignee?.employeeCode === employeeCode);
-    return { employeeCode, fullName: employeeTasks[0].currentAssignee!.fullName, count: employeeTasks.length };
+  const employeeIds = [...new Set(summaryTasks.map((task) => task.currentAssigneeId).filter((id): id is string => Boolean(id)))];
+  const byEmployee = employeeIds.map((employeeId) => {
+    const employee = employeeById.get(employeeId);
+    return {
+      employeeCode: employee?.employeeCode || "INACTIVE_OR_OUT_OF_SCOPE",
+      fullName: employee?.fullName || null,
+      count: summaryTasks.filter((task) => task.currentAssigneeId === employeeId).length,
+    };
   });
 
   return {
@@ -392,11 +455,13 @@ async function getTaskActivity(user: AppUser, args: ToolArgs) {
     returnedTaskCount: tasks.length,
     truncated: totalMatched > tasks.length,
     assignedEmployeeCount: byEmployee.length,
-    unassignedTaskCount: tasks.filter((task) => !task.currentAssignee).length,
+    unassignedTaskCount: summaryTasks.filter((task) => !task.currentAssigneeId).length,
     byStatus,
     byProduct,
     byEmployee,
     tasks: tasks.map((task) => ({
+      id: task.id,
+      url: `/tasks/${task.id}`,
       taskCode: task.taskCode,
       taskName: task.taskName,
       product: task.product ? { code: task.product.code, name: task.product.name } : null,
@@ -410,11 +475,92 @@ async function getTaskActivity(user: AppUser, args: ToolArgs) {
       status: task.status,
       progress: task.progress,
       priority: task.priority,
-      plannedStartDate: task.plannedStartDate.toISOString().slice(0, 10),
-      plannedEndDate: task.plannedEndDate.toISOString().slice(0, 10),
+      plannedStartDate: task.plannedStartDate?.toISOString().slice(0, 10) ?? null,
+      plannedEndDate: task.plannedEndDate?.toISOString().slice(0, 10) ?? null,
       plannedStartTime: task.plannedStartTime,
       plannedEndTime: task.plannedEndTime,
     })),
+  };
+}
+
+async function getTaskRisks(user: AppUser, args: ToolArgs) {
+  const date = parseDate(args.date, "date");
+  const dateValue = String(args.date);
+  const dueWithinDays = typeof args.dueWithinDays === "number" && Number.isInteger(args.dueWithinDays)
+    ? Math.min(30, Math.max(0, args.dueWithinDays))
+    : 7;
+  const horizon = new Date(date);
+  horizon.setUTCDate(horizon.getUTCDate() + dueWithinDays);
+  const scope = await resolveEmployeeScope(user, args.teamName);
+  const scopedEmployeeIds = scope.employees.map((employee) => employee.id);
+  const where: Prisma.TaskWhereInput = {
+    deletedAt: null,
+    workType: "PRODUCT",
+    currentAssigneeId: { in: scopedEmployeeIds },
+    status: { notIn: ["COMPLETED", "CANCELLED", "WAITING"] },
+    plannedEndDate: { lte: endOfDate(horizon.toISOString().slice(0, 10)) },
+  };
+
+  if (typeof args.product === "string" && args.product.trim()) {
+    const products = await prisma.product.findMany({ select: { id: true, code: true, name: true } });
+    const product = findUniqueMatch(products, args.product, (item) => [item.code, item.name]);
+    if (!product) throw new Error("Product not found");
+    where.productId = product.id;
+  }
+
+  if (typeof args.employee === "string" && args.employee.trim()) {
+    const employee = findUniqueMatch(scope.employees, args.employee, (item) => [item.employeeCode, item.fullName]);
+    if (!employee) throw new Error("Employee not found in the authorized scope");
+    where.currentAssigneeId = employee.id;
+  }
+
+  const tasks = await prisma.task.findMany({
+    where,
+    select: {
+      id: true,
+      taskCode: true,
+      taskName: true,
+      status: true,
+      progress: true,
+      priority: true,
+      plannedEndDate: true,
+      product: { select: { code: true, name: true } },
+      currentAssignee: { select: { employeeCode: true, fullName: true, team: { select: { name: true } } } },
+    },
+    orderBy: [{ plannedEndDate: "asc" }, { priority: "desc" }, { taskCode: "asc" }],
+  });
+
+  const dayMs = 86_400_000;
+  const records = tasks.map((task) => {
+    const endDate = task.plannedEndDate ? task.plannedEndDate.toISOString().slice(0, 10) : "";
+    const difference = task.plannedEndDate ? Math.round((task.plannedEndDate.getTime() - date.getTime()) / dayMs) : 0;
+    return {
+      taskCode: task.taskCode,
+      taskName: task.taskName,
+      url: `/tasks/${task.id}`,
+      product: task.product,
+      assignee: task.currentAssignee,
+      status: task.status,
+      progress: task.progress,
+      priority: task.priority,
+      plannedEndDate: endDate,
+      risk: difference < 0 ? "OVERDUE" : difference === 0 ? "DUE_TODAY" : "DUE_SOON",
+      daysOverdue: difference < 0 ? Math.abs(difference) : 0,
+      daysUntilDue: difference >= 0 ? difference : null,
+    };
+  });
+
+  return {
+    date: dateValue,
+    dueWithinDays,
+    team: scope.teamName,
+    overdueCount: records.filter((task) => task.risk === "OVERDUE").length,
+    dueTodayCount: records.filter((task) => task.risk === "DUE_TODAY").length,
+    dueSoonCount: records.filter((task) => task.risk === "DUE_SOON").length,
+    tasks: records.slice(0, 100),
+    returnedTaskCount: Math.min(records.length, 100),
+    matchedTaskCount: records.length,
+    truncated: records.length > 100,
   };
 }
 
@@ -423,5 +569,6 @@ export async function executeAiTool(name: string, args: ToolArgs, user: AppUser)
   if (name === "get_team_workload") return getTeamWorkload(user, args);
   if (name === "get_schedule_conflicts") return getScheduleConflicts(user, args);
   if (name === "get_task_activity") return getTaskActivity(user, args);
+  if (name === "get_task_risks") return getTaskRisks(user, args);
   throw new Error("Unsupported tool");
 }
