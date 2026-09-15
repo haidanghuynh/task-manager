@@ -51,6 +51,11 @@ Chatbox -> POST /api/ai/chat -> auth/role/rate limit -> DeepSeek tool call
         -> tool Prisma chỉ đọc, ép team -> DeepSeek diễn giải -> chatbox
 ```
 
+Backend phân loại từng câu thành `fact` hoặc `analysis`. Câu hỏi dữ liệu thông thường tắt thinking để
+phản hồi nhanh; câu đề xuất/so sánh bật thinking và tự hạ về chế độ thường nếu provider không hỗ trợ.
+Prompt được giữ ngắn, không chứa câu trả lời mẫu cố định. Audit lưu mode và trạng thái thinking nhưng
+không lưu nội dung câu hỏi.
+
 Tool hiện có:
 
 - `get_available_members`: ngày nghỉ, giờ DAILY, số task active và giờ trống ước tính trong một ngày.
@@ -58,6 +63,12 @@ Tool hiện có:
 - `get_schedule_conflicts`: cặp DAILY có giờ bị chồng nhau trong một ngày.
 - `get_task_activity`: tìm task theo ngày/khoảng ngày, sản phẩm, nhân viên, trạng thái, loại công việc
   và tình trạng phân công; trả cả danh sách chi tiết lẫn tổng hợp theo người/sản phẩm/trạng thái.
+- `get_task_risks`: task PRODUCT đã giao đang quá hạn, đến hạn hôm nay hoặc sắp đến hạn. Quy tắc quá
+  hạn bắt đầu từ ngày kế tiếp sau `plannedEndDate`; bỏ DAILY, WAITING, completed và cancelled.
+
+`get_task_activity` tính summary trên toàn bộ kết quả trước khi giới hạn tối đa 100 dòng chi tiết. Task
+chi tiết có URL nội bộ để câu trả lời có thể liên kết trực tiếp tới `/tasks/[id]`. Tìm team, product và
+employee hỗ trợ khớp chính xác hoặc khớp một phần duy nhất; kết quả mơ hồ buộc người dùng nêu rõ hơn.
 
 Prompt yêu cầu trả lời linh hoạt theo ý định thay vì một template cố định. Các câu “đang làm” được
 phân biệt với “đã được phân công”: `IN_PROGRESS` là đang thực hiện, còn lịch phân công có thể gồm cả
@@ -66,6 +77,11 @@ phân biệt với “đã được phân công”: `IN_PROGRESS` là đang th�
 Giờ trống chỉ là ước tính. `AI_DAILY_CAPACITY_HOURS` mặc định 8; giờ DAILY và ngày nghỉ làm giảm công
 suất. PRODUCT hoặc task không nhập giờ vẫn tăng workload nhưng không trừ được giờ chính xác. AI phải
 nêu giới hạn này khi đề xuất.
+
+Chatbox gửi pathname, query string và page state nhỏ, không tin cậy. Trang lịch hiện gửi tháng/ngày
+đang chọn, chế độ nhóm/nhân viên và các cờ lọc. Context chỉ dùng để hiểu “tháng đang xem” hoặc “ngày
+này”; câu hỏi viết rõ luôn được ưu tiên. Lịch sử được cắt tối đa 12 tin và luôn bắt đầu từ một tin user
+để tránh gửi một assistant message bị mất câu hỏi gốc.
 
 ## An toàn và audit
 

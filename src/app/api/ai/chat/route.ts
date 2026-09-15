@@ -11,7 +11,14 @@ const requestSchema = z.object({
     content: z.string().trim().min(1).max(2000),
   })).min(1).max(12),
   language: z.enum(["vi", "ja"]).default("vi"),
-  context: z.object({ pathname: z.string().max(200).optional() }).optional(),
+  context: z.object({
+    pathname: z.string().max(200).optional(),
+    search: z.string().max(500).optional(),
+    pageState: z.record(
+      z.string().max(50),
+      z.union([z.string().max(200), z.boolean(), z.null()]),
+    ).refine((value) => Object.keys(value).length <= 20).optional(),
+  }).optional(),
 });
 
 const requestWindows = new Map<string, number[]>();
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
       user,
       messages: parsed.data.messages,
       language: parsed.data.language,
-      pathname: parsed.data.context?.pathname,
+      context: parsed.data.context,
     });
     await recordAuditLog({
       request,
@@ -73,6 +80,8 @@ export async function POST(request: NextRequest) {
       details: {
         toolsUsed: result.toolsUsed,
         model: result.model,
+        queryMode: result.queryMode,
+        reasoningEnabled: result.reasoningEnabled,
         messageCount: parsed.data.messages.length,
         lastMessageLength: parsed.data.messages.at(-1)?.content.length || 0,
       },

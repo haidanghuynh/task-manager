@@ -58,3 +58,6 @@ giữa nút, header và system prompt. Lời chào tự chọn vi/ja; tên hiể
 
 Nút thu nhỏ dùng Pointer Events để kéo chuột/cảm ứng, clamp theo viewport và lưu vị trí localStorage.
 Panel khi mở không di chuyển theo nút. Test drag/click riêng, snap cạnh, reload và resize desktop/mobile.
+
+Gợi ý câu hỏi thay đổi theo route; riêng `/schedule` ưu tiên tháng đang xem, lịch trống, xung đột và
+deadline. Link tương đối do AI tạo mở trong cùng tab; link ngoài mới mở tab mới với `noopener noreferrer`.

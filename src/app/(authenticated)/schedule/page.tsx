@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, type UIEvent } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n";
+import { clearAiPageContext, setAiPageContext } from "@/lib/ai/client-context";
 import { dailyWorkColor, dailyWorkLabel } from "@/lib/task-work-type";
 import { useDailyWorkCategories } from "@/lib/use-daily-work-categories";
 
@@ -147,6 +148,18 @@ export default function SchedulePage() {
   const visibleTasks = tasks.filter((task) =>
     task.workType === "DAILY" ? showDailyWork : showProductTasks,
   );
+
+  useEffect(() => {
+    setAiPageContext("/schedule", {
+      selectedMonth: monthStr,
+      viewMode,
+      showCompleted,
+      showProductTasks,
+      showDailyWork,
+      selectedDay: selectedDayKey,
+    });
+    return () => clearAiPageContext("/schedule");
+  }, [monthStr, selectedDayKey, showCompleted, showDailyWork, showProductTasks, viewMode]);
 
   useEffect(() => {
     Promise.all([

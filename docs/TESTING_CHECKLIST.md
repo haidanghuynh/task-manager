@@ -106,3 +106,12 @@ Không thêm lint error. Với lockfile, nên xác nhận `npm ci` sạch.
   ngôn ngữ UI, không dịch tên người/nhóm/sản phẩm, username, task code hoặc tên task nhập tay.
 - Sau nhiều câu tiếng Việt, hỏi tiếp bằng tiếng Nhật trong cùng hội thoại vẫn phải trả lời hoàn toàn bằng
   tiếng Nhật; lịch sử cũ không được lấn át ngôn ngữ của câu hỏi mới nhất.
+- Câu hỏi dữ liệu đơn giản trả `queryMode=fact`; câu đề xuất/so sánh trả `analysis`, bật thinking khi
+  provider hỗ trợ và tự fallback nếu không hỗ trợ.
+- Hỏi task quá hạn/đến hạn/sắp đến hạn gọi `get_task_risks`, không tính DAILY hoặc WAITING là quá hạn và
+  dùng đúng quy tắc chỉ trễ từ ngày kế tiếp sau ngày kết thúc.
+- Trên `/schedule`, câu “tháng đang xem” dùng đúng `selectedMonth`; thay filter/ngày rồi hỏi lại nhận
+  context mới. Context client giả không vượt được scope team của Manager.
+- Task link trong câu trả lời mở đúng `/tasks/[id]` cùng tab; link ngoài mở tab mới an toàn.
+- Tạo hơn 100 task phù hợp filter: `matchedTaskCount`, `byStatus`, `byProduct`, `byEmployee` và số chưa
+  phân công vẫn tính toàn bộ; chỉ mảng chi tiết báo `truncated=true`.

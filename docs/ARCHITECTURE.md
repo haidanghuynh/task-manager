@@ -84,3 +84,5 @@ mất hiệu lực.
 Chatbox AI là component toàn cục trong authenticated layout nhưng chỉ hiện khi feature flag bật và role
 là Admin/Manager. `/api/features` công bố trạng thái an toàn cho UI; `/api/ai/chat` gọi DeepSeek và các
 tool Prisma chỉ đọc. Xem [`AI_ASSISTANT.md`](AI_ASSISTANT.md).
+Server phân loại câu hỏi fact/analysis, chuẩn hóa summary trước khi giới hạn chi tiết và chỉ bật thinking
+cho câu cần đề xuất/so sánh. Client gửi page context giới hạn kích thước; context không cấp thêm quyền.

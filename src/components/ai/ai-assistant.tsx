@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Bot, LoaderCircle, Minus, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { getAiPageContext } from "@/lib/ai/client-context";
 import { useLang } from "@/lib/i18n";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -29,6 +30,7 @@ const copy = {
     error: "Không thể nhận câu trả lời từ AI. Vui lòng thử lại.",
     rateLimited: "Bạn gửi câu hỏi quá nhanh. Vui lòng chờ một phút.",
     suggestions: ["Ai đang trống hôm nay?", "Hôm nay sản phẩm nào đang có người làm?", "Nhóm tôi có ai bị trùng lịch hôm nay?", "Ai đang có ít task nhất tuần này?"],
+    scheduleSuggestions: ["Trong tháng đang xem, ai có nhiều task nhất?", "Hôm nay ai đang trống?", "Có ai bị trùng lịch hôm nay không?", "Task nào đang quá hạn hoặc sắp đến hạn?"],
   },
   ja: {
     title: "AIアシスタント",
@@ -43,6 +45,7 @@ const copy = {
     error: "AIから回答を取得できませんでした。もう一度お試しください。",
     rateLimited: "リクエストが多すぎます。1分待ってから再試行してください。",
     suggestions: ["今日空いている人は？", "今日、どの製品を誰が担当していますか？", "今日、チーム内で予定が重複している人は？", "今週タスクが最も少ない人は？"],
+    scheduleSuggestions: ["表示中の月でタスクが最も多い人は？", "今日空いている人は？", "今日、予定が重複している人は？", "期限超過または期限が近いタスクは？"],
   },
 } as const;
 
@@ -59,7 +62,10 @@ const markdownComponents: Components = {
   table: ({ children }) => <div className="my-3 overflow-x-auto rounded-lg border"><table className="min-w-full border-collapse text-left text-xs">{children}</table></div>,
   th: ({ children }) => <th className="whitespace-nowrap border-b border-r bg-gray-100 px-2.5 py-2 font-semibold text-gray-900 last:border-r-0">{children}</th>,
   td: ({ children }) => <td className="border-b border-r px-2.5 py-2 align-top last:border-r-0">{children}</td>,
-  a: ({ children, href }) => <a href={href} target="_blank" rel="noreferrer noopener" className="text-blue-600 underline hover:no-underline">{children}</a>,
+  a: ({ children, href }) => {
+    const internal = href?.startsWith("/");
+    return <a href={href} target={internal ? undefined : "_blank"} rel={internal ? undefined : "noreferrer noopener"} className="text-blue-600 underline hover:no-underline">{children}</a>;
+  },
   img: () => null,
   code: ({ children, className }) => className
     ? <code className={`${className} block overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100`}>{children}</code>
@@ -69,6 +75,12 @@ const markdownComponents: Components = {
 
 function AssistantMarkdown({ content }: { content: string }) {
   return <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={markdownComponents}>{content}</ReactMarkdown>;
+}
+
+function compactConversation(messages: ChatMessage[]) {
+  const recent = messages.slice(-12);
+  const firstUserIndex = recent.findIndex((message) => message.role === "user");
+  return firstUserIndex >= 0 ? recent.slice(firstUserIndex) : recent;
 }
 
 export function AiAssistant() {
@@ -200,7 +212,7 @@ export function AiAssistant() {
     const question = content.trim();
     if (!question || busy || !feature?.configured) return;
     const userMessage: ChatMessage = { role: "user", content: question };
-    const history = [...messages, userMessage].slice(-12);
+    const history = compactConversation([...messages, userMessage]);
     setMessages(history);
     setInput("");
     setBusy(true);
@@ -209,7 +221,15 @@ export function AiAssistant() {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, language: lang, context: { pathname } }),
+        body: JSON.stringify({
+          messages: history,
+          language: lang,
+          context: {
+            pathname,
+            search: window.location.search,
+            pageState: getAiPageContext(pathname),
+          },
+        }),
       });
       const json = await response.json() as { success: boolean; data?: { answer: string }; error?: { code?: string } };
       const errorText = json.error?.code === "RATE_LIMITED" ? labels.rateLimited : labels.error;
@@ -228,6 +248,7 @@ export function AiAssistant() {
 
   if (!roleAllowed || !feature?.enabled) return null;
   const assistantName = feature.name;
+  const suggestions = pathname === "/schedule" ? labels.scheduleSuggestions : labels.suggestions;
   const greeting = lang === "ja"
     ? `こんにちは、${assistantName}です。スケジュールや業務負荷を確認し、担当者候補を提案できます。データを自動変更することはありません。`
     : `Xin chào! Tôi là ${assistantName}. Tôi có thể kiểm tra lịch, khối lượng công việc và đề xuất người phù hợp, nhưng sẽ không tự thay đổi task.`;
@@ -277,7 +298,7 @@ export function AiAssistant() {
             {busy && <div className="mr-8 flex items-center gap-2 rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm text-gray-500 shadow-sm"><LoaderCircle className="h-4 w-4 animate-spin" />{labels.thinking}</div>}
             {messages.length === 0 && feature.configured && (
               <div className="flex flex-wrap gap-2">
-                {labels.suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => void sendMessage(suggestion)} className="rounded-full border bg-white px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100">{suggestion}</button>)}
+                {suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => void sendMessage(suggestion)} className="rounded-full border bg-white px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100">{suggestion}</button>)}
               </div>
             )}
             <div ref={endRef} />
