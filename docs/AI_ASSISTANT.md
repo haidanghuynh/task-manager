@@ -34,6 +34,52 @@ sudo systemctl restart task-manager
 sudo journalctl -u task-manager -n 100 --no-pager
 ```
 
+### Bật trên production (từng bước)
+
+Máy production cài bằng installer dùng `/etc/task-manager/task-manager.env`. Bản cài cũ có thể chưa
+có dòng cấu hình AI nào; khi đó AI đang tắt (mặc định `false` khi thiếu biến) và cần thêm thủ công.
+
+1. Kiểm tra cấu hình AI hiện có:
+
+   ```bash
+   sudo grep -E '^(AI_|DEEPSEEK_API_KEY)' /etc/task-manager/task-manager.env
+   ```
+
+   Không có output nghĩa là chưa cấu hình AI.
+
+2. Thêm cấu hình nếu thiếu:
+
+   ```bash
+   sudo tee -a /etc/task-manager/task-manager.env > /dev/null <<'EOF'
+   AI_ASSISTANT_ENABLED="true"
+   AI_ASSISTANT_NAME="Tiểu Mỹ"
+   AI_MODEL="deepseek-v4-flash"
+   DEEPSEEK_API_KEY="<api-key-phia-server>"
+   AI_RATE_LIMIT_PER_MINUTE="10"
+   AI_DAILY_CAPACITY_HOURS="8"
+   EOF
+   ```
+
+3. Restart và xem log:
+
+   ```bash
+   sudo systemctl restart task-manager
+   sudo journalctl -u task-manager -n 100 --no-pager
+   ```
+
+   `status=143/n/a` khi restart là SIGTERM dừng process cũ, không phải lỗi; chỉ cần thấy `✓ Ready`.
+
+4. Kiểm tra mạng ra DeepSeek (tường lửa có thể chặn outbound 443):
+
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" https://api.deepseek.com
+   ```
+
+   Có mã HTTP (ví dụ `401`) nghĩa là kết nối được — `401` chỉ vì lệnh curl không kèm API key. Treo
+   hoặc timeout nghĩa là cần mở tường lửa outbound tới `api.deepseek.com:443`.
+
+5. Xác nhận bằng UI: đăng nhập Admin/Manager, thấy nút "Tiểu Mỹ" là thành công; Employee không thấy.
+
 ## Quyền và phạm vi
 
 - Admin thấy chatbox và có thể hỏi toàn bộ hoặc nêu tên một nhóm.
