@@ -95,6 +95,7 @@ function TasksPageContent() {
   }
 
   function plannedDate(value: unknown, time?: string | null): string {
+    if (!value) return "—";
     return `${formatDate(value as string)}${time ? ` ${time}` : ""}`;
   }
 
