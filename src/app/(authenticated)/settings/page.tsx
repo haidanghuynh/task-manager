@@ -6,6 +6,14 @@ import { useLang } from "@/lib/i18n";
 import Link from "next/link";
 import { History } from "lucide-react";
 
+interface OsOption {
+  id: string;
+  name: string;
+  groupName: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const user = session?.user as any;
@@ -21,8 +29,12 @@ export default function SettingsPage() {
   const [showDailyForm, setShowDailyForm] = useState(false);
   const [editingDailyId, setEditingDailyId] = useState<string | null>(null);
   const [dailyForm, setDailyForm] = useState({ code: "", nameVi: "", nameJa: "", color: "#8B5CF6" });
+  const [osOptions, setOsOptions] = useState<OsOption[]>([]);
+  const [showOsForm, setShowOsForm] = useState(false);
+  const [editingOsId, setEditingOsId] = useState<string | null>(null);
+  const [osForm, setOsForm] = useState({ name: "", groupName: "Windows", sortOrder: "0", syncExisting: true });
 
-  useEffect(() => { fetchProducts(); fetchDailyCategories(); }, []);
+  useEffect(() => { fetchProducts(); fetchDailyCategories(); fetchOsOptions(); }, []);
 
   async function fetchProducts() {
     setLoading(true);
@@ -81,6 +93,59 @@ export default function SettingsPage() {
   async function activateDailyCategory(id: string) {
     await fetch(`/api/daily-work-categories?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) });
     fetchDailyCategories();
+  }
+
+  async function fetchOsOptions() {
+    const response = await fetch("/api/test-environment-os");
+    const result = await response.json();
+    if (result.success) setOsOptions(result.data);
+  }
+
+  async function saveOsOption(event: React.FormEvent) {
+    event.preventDefault();
+    const url = editingOsId ? `/api/test-environment-os?id=${editingOsId}` : "/api/test-environment-os";
+    const response = await fetch(url, {
+      method: editingOsId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: osForm.name,
+        groupName: osForm.groupName,
+        sortOrder: Number.parseInt(osForm.sortOrder, 10) || 0,
+        ...(editingOsId ? { syncExisting: osForm.syncExisting } : {}),
+      }),
+    });
+    const result = await response.json();
+    if (!result.success) {
+      alert(result.error?.code === "DUPLICATE"
+        ? (lang === "ja" ? "同じOS名が既に存在します。" : "Tên OS này đã tồn tại.")
+        : (lang === "ja" ? "OS設定を保存できません。" : "Không thể lưu cấu hình OS."));
+      return;
+    }
+    const synced = Number(result.data?.syncedEnvironments || 0);
+    setShowOsForm(false);
+    setEditingOsId(null);
+    setOsForm({ name: "", groupName: "Windows", sortOrder: "0", syncExisting: true });
+    fetchOsOptions();
+    if (synced > 0) {
+      alert(lang === "ja" ? `${synced}件の環境のOS名を更新しました。` : `Đã cập nhật tên OS cho ${synced} môi trường.`);
+    }
+  }
+
+  function startOsEdit(option: OsOption) {
+    setEditingOsId(option.id);
+    setShowOsForm(false);
+    setOsForm({ name: option.name, groupName: option.groupName, sortOrder: String(option.sortOrder), syncExisting: true });
+  }
+
+  async function activateOsOption(id: string) {
+    await fetch(`/api/test-environment-os?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) });
+    fetchOsOptions();
+  }
+
+  async function deleteOsOption(id: string) {
+    if (!confirm(lang === "ja" ? "このOSを削除または無効化しますか？" : "Bạn có chắc muốn xóa hoặc vô hiệu hóa OS này?")) return;
+    await fetch(`/api/test-environment-os?id=${id}`, { method: "DELETE" });
+    fetchOsOptions();
   }
 
   async function handleActivate(id: string) {
@@ -179,6 +244,51 @@ export default function SettingsPage() {
             <div className="flex gap-2"><button data-i18n-ignore type="submit" className="rounded bg-blue-600 px-3 py-1 text-xs text-white">{editingDailyId ? (lang === "ja" ? "更新" : "Cập nhật") : (lang === "ja" ? "作成" : "Tạo")}</button><button data-i18n-ignore type="button" onClick={() => { setShowDailyForm(false); setEditingDailyId(null); }} className="rounded border px-3 py-1 text-xs">{lang === "ja" ? "キャンセル" : "Hủy"}</button></div>
           </form>}
           <div className="space-y-2">{dailyCategories.map((category: any) => <div key={category.id} className="flex items-center gap-3 rounded-lg bg-gray-50 p-3"><span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: category.color }} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{lang === "ja" ? category.nameJa : category.nameVi}</p><p className="text-xs text-gray-500">{category.code} · {lang === "ja" ? category.nameVi : category.nameJa}</p></div><span className={`rounded-full px-2 py-0.5 text-xs ${category.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{category.isActive ? "Active" : "Inactive"}</span><button data-i18n-ignore onClick={() => startDailyEdit(category)} className="text-xs text-blue-600 hover:underline">{lang === "ja" ? "編集" : "Sửa"}</button>{!category.isActive && <button data-i18n-ignore onClick={() => activateDailyCategory(category.id)} className="text-xs text-green-600 hover:underline">{lang === "ja" ? "有効化" : "Kích hoạt"}</button>}<button data-i18n-ignore onClick={() => deleteDailyCategory(category.id)} className="text-xs text-red-600 hover:underline">{lang === "ja" ? "削除" : "Xóa"}</button></div>)}</div>
+        </div>
+
+        {/* Test environment OS options */}
+        <div className="rounded-lg border bg-white p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 data-i18n-ignore className="text-lg font-semibold text-gray-900">{lang === "ja" ? "テスト環境OS" : "OS môi trường test"}</h3>
+              <p data-i18n-ignore className="mt-1 text-xs text-gray-500">{lang === "ja" ? "テスト環境のOS選択肢を管理します。" : "Quản lý danh sách OS hiển thị trong ô chọn của môi trường test."}</p>
+            </div>
+            <button data-i18n-ignore onClick={() => { setShowOsForm(!showOsForm); setEditingOsId(null); setOsForm({ name: "", groupName: "Windows", sortOrder: "0", syncExisting: true }); }} className="text-sm text-blue-600 hover:underline">{lang === "ja" ? "+ 追加" : "+ Thêm"}</button>
+          </div>
+          {(showOsForm || editingOsId) && <form onSubmit={saveOsOption} className="mb-4 space-y-2 rounded bg-gray-50 p-3">
+            <input data-i18n-ignore required maxLength={80} value={osForm.name} onChange={(event) => setOsForm({ ...osForm, name: event.target.value })} placeholder={lang === "ja" ? "OS名（例：Windows 11 Pro）" : "Tên OS (ví dụ: Windows 11 Pro)"} className="w-full rounded border px-2 py-1 text-sm" />
+            <input data-i18n-ignore required maxLength={40} list="os-group-options" value={osForm.groupName} onChange={(event) => setOsForm({ ...osForm, groupName: event.target.value })} placeholder={lang === "ja" ? "グループ（例：Windows）" : "Nhóm (ví dụ: Windows)"} className="w-full rounded border px-2 py-1 text-sm" />
+            <datalist id="os-group-options">
+              {[...new Set(osOptions.map((option) => option.groupName))].map((groupName) => <option key={groupName} value={groupName} />)}
+            </datalist>
+            <label data-i18n-ignore className="flex items-center gap-2 text-xs text-gray-600">
+              {lang === "ja" ? "表示順" : "Thứ tự hiển thị"}
+              <input type="number" min={0} max={9999} value={osForm.sortOrder} onChange={(event) => setOsForm({ ...osForm, sortOrder: event.target.value })} className="w-24 rounded border px-2 py-1 text-sm" />
+            </label>
+            {editingOsId && <label data-i18n-ignore className="flex items-start gap-2 text-xs text-gray-600">
+              <input type="checkbox" checked={osForm.syncExisting} onChange={(event) => setOsForm({ ...osForm, syncExisting: event.target.checked })} className="mt-0.5" />
+              <span>{lang === "ja" ? "使用中データのOS名も同時に変更する" : "Đổi tên luôn cho các môi trường đang dùng tên cũ"}</span>
+            </label>}
+            <div className="flex gap-2">
+              <button data-i18n-ignore type="submit" className="rounded bg-blue-600 px-3 py-1 text-xs text-white">{editingOsId ? (lang === "ja" ? "更新" : "Cập nhật") : (lang === "ja" ? "作成" : "Tạo")}</button>
+              <button data-i18n-ignore type="button" onClick={() => { setShowOsForm(false); setEditingOsId(null); }} className="rounded border px-3 py-1 text-xs">{lang === "ja" ? "キャンセル" : "Hủy"}</button>
+            </div>
+          </form>}
+          <div className="space-y-2">
+            {osOptions.map((option) => (
+              <div key={option.id} className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{option.name}</p>
+                  <p className="text-xs text-gray-500">{option.groupName} · #{option.sortOrder}</p>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${option.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{option.isActive ? "Active" : "Inactive"}</span>
+                <button data-i18n-ignore onClick={() => startOsEdit(option)} className="text-xs text-blue-600 hover:underline">{lang === "ja" ? "編集" : "Sửa"}</button>
+                {!option.isActive && <button data-i18n-ignore onClick={() => activateOsOption(option.id)} className="text-xs text-green-600 hover:underline">{lang === "ja" ? "有効化" : "Kích hoạt"}</button>}
+                <button data-i18n-ignore onClick={() => deleteOsOption(option.id)} className="text-xs text-red-600 hover:underline">{lang === "ja" ? "削除" : "Xóa"}</button>
+              </div>
+            ))}
+            {osOptions.length === 0 && <p data-i18n-ignore className="text-xs text-gray-500">{lang === "ja" ? "OS設定がありません。" : "Chưa có cấu hình OS."}</p>}
+          </div>
         </div>
 
         {/* System Info */}

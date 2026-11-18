@@ -30,6 +30,8 @@ model User {
   commentDeletes TaskComment[]           @relation("CommentDeletedBy")
   recordedNippoAbsences NippoAbsence[]   @relation("NippoAbsenceRecordedBy")
   auditLogs        AuditLog[]             @relation("AuditActor")
+  createdTestEnvironments TestEnvironment[] @relation("TestEnvironmentCreatedBy")
+  releasedTestEnvironmentUsages TestEnvironmentUsage[] @relation("TestEnvironmentUsageReleasedBy")
 
   @@index([deletedAt])
   @@map("users")
@@ -55,6 +57,8 @@ model Employee {
   teamMemberships   TeamMember[]
   nippoReports       NippoReport[]
   nippoAbsences      NippoAbsence[]
+  testEnvironments   TestEnvironment[]
+  testEnvironmentUsages TestEnvironmentUsage[]
 
   @@map("employees")
 }
@@ -102,6 +106,8 @@ model Product {
 
   tasks Task[]
 
+  testEnvironments TestEnvironment[]
+
   @@map("products")
 }
 
@@ -116,6 +122,80 @@ model DailyWorkCategory {
   updatedAt DateTime @updatedAt
 
   @@map("daily_work_categories")
+}
+
+model TestEnvironment {
+  id             String    @id @default(cuid())
+  type           String    @default("PERSONAL") // PERSONAL, SHARED
+  productId      String
+  employeeId     String?
+  usagePeriod    DateTime? // 使用開始日・更新日 (ngày bắt đầu dùng)
+  usageEndDate   DateTime? // Hạn trả của lượt đăng ký hiện tại (dùng chung)
+  os             String?
+  setupType      String    @default("NEW") // NEW, UPDATE
+  virus          String?   // tình trạng antivirus + version
+  hostName       String?   // ホスト名（ssh先）
+  ip             String?
+  url            String?
+  deliveryDomain String?   // 配送ドメイン名
+  version        String?
+  buildInfo      String?   // BuildInfo, vd 2.20.0(29845)
+  commonVersion  String?   // common, vd 12.48.1(28380)
+  sophosVersion  String?   // sophos, vd 3.5.0(29733)
+  isActive       Boolean   @default(true)
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  product   Product   @relation(fields: [productId], references: [id])
+  employee  Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  createdBy User      @relation("TestEnvironmentCreatedBy", fields: [createdById], references: [id])
+  usages    TestEnvironmentUsage[]
+
+  @@index([type])
+  @@index([productId])
+  @@index([employeeId])
+  @@index([usageEndDate])
+  @@map("test_environments")
+}
+
+// Lịch sử từng lượt đăng ký dùng môi trường (đặc biệt là môi trường dùng chung).
+// Bản ghi còn mở khi releasedAt = null.
+model TestEnvironmentUsage {
+  id             String    @id @default(cuid())
+  environmentId  String
+  employeeId     String
+  startDate      DateTime
+  endDate        DateTime
+  registeredAt   DateTime  @default(now())
+  releasedAt     DateTime?
+  releasedById   String?
+  releaseReason  String?
+
+  environment TestEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  releasedBy  User?           @relation("TestEnvironmentUsageReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
+
+  @@index([environmentId, registeredAt])
+  @@index([employeeId, releasedAt])
+  @@index([endDate])
+  @@map("test_environment_usages")
+}
+
+// Danh sách OS cho ô chọn ở màn hình Môi trường test.
+// Quản lý trên UI tại Cài đặt (Admin). TestEnvironment.os vẫn là text để giữ
+// giá trị cũ khi option bị đổi tên/xóa.
+model TestEnvironmentOsOption {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  groupName String   @default("Khác")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("test_environment_os_options")
 }
 
 model Task {

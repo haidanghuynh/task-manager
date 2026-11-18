@@ -18,6 +18,8 @@ export const APP_PERMISSIONS = [
   "EMPLOYEE_MANAGE",
   "EMPLOYEE_IMPORT_EXPORT",
   "TEAM_MANAGE",
+  "ENVIRONMENT_VIEW",
+  "ENVIRONMENT_MANAGE",
 ] as const;
 
 export type AppPermission = (typeof APP_PERMISSIONS)[number];
@@ -31,6 +33,7 @@ const employeeDefaults: AppPermission[] = [
   "NIPPO_VIEW",
   "NIPPO_SUBMIT",
   "EMPLOYEE_VIEW",
+  "ENVIRONMENT_VIEW",
 ];
 
 export const DEFAULT_PERMISSIONS: Record<PermissionRole, AppPermission[]> = {

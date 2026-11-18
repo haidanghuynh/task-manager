@@ -91,6 +91,8 @@ const permissionLabels: Record<AppPermission, { vi: string; ja: string }> = {
   EMPLOYEE_MANAGE: { vi: "Tạo và sửa nhân viên", ja: "社員の作成・編集" },
   EMPLOYEE_IMPORT_EXPORT: { vi: "Import và export nhân viên", ja: "社員のインポート・エクスポート" },
   TEAM_MANAGE: { vi: "Quản lý nhóm", ja: "チーム管理" },
+  ENVIRONMENT_VIEW: { vi: "Xem môi trường test", ja: "テスト環境を表示" },
+  ENVIRONMENT_MANAGE: { vi: "Quản lý môi trường test", ja: "テスト環境の管理" },
 };
 
 const blankForm = { name: "", username: "", password: "", role: "EMPLOYEE" as Role, employeeId: "", permissions: [...DEFAULT_PERMISSIONS.EMPLOYEE] };

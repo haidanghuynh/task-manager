@@ -17,6 +17,9 @@ hiện không khớp schema.
 | `Team`, `TeamMember` | Nhóm/trưởng nhóm/membership; API đồng bộ với `Employee.teamId` |
 | `Product` | Code unique, tên, màu, active |
 | `DailyWorkCategory` | Code unique, tên vi/ja, màu, active; Task không FK |
+| `TestEnvironment` | Môi trường test cá nhân/dùng chung gắn Product + Employee; text OS/host/IP/URL/version... |
+| `TestEnvironmentOsOption` | Option OS cho ô chọn môi trường test: name unique, groupName, sortOrder, active |
+| `TestEnvironmentUsage` | Lịch sử từng lượt đăng ký dùng môi trường: người, start/end, đăng ký lúc, trả lúc, người trả, lý do |
 | `Task` | Code không unique, PRODUCT/DAILY, thời gian/status/progress, một assignee, nhóm liên kết tùy chọn, soft delete |
 | `TaskAssignmentHistory` | Giai đoạn phân công và lý do tùy chọn |
 | `TaskStatusHistory`, `TaskChangeLog` | Audit status/field |
@@ -32,6 +35,9 @@ hiện không khớp schema.
 - Task/User xóa mềm; Employee API xóa vĩnh viễn qua transaction.
 - Product/category đang được dùng thì deactivate; chưa dùng mới xóa hẳn.
 - `Task.dailyCategory` là text không FK để giữ category cũ và giá trị tự nhập.
+- `TestEnvironmentUsage` chỉ mở một bản ghi `releasedAt = null` cho mỗi môi trường tại một thời điểm;
+  register/release/đổi người phụ trách/xóa môi trường phải đóng hoặc mở bản ghi trong cùng transaction.
+- `TestEnvironment.usagePeriod`/`usageEndDate` là khoảng ngày của lượt đang mở, không thay thế lịch sử.
 - `Task.taskCode` có index nhưng không unique.
 - `Task.assignmentGroupId` nullable, có index. Khi tạo DAILY cho nhiều người, mỗi người có một Task
   riêng cùng group ID; không dùng field này để đồng bộ tiến độ hoặc trạng thái.
@@ -72,6 +78,7 @@ period: FULL | HALF_AM | HALF_PM
 20260814170000_add_daily_work_categories
 20260914120000_add_practice_daily_category
 20260915031658_allow_null_task_dates
+20261023084550_add_test_environments
 ```
 
 Thay schema:

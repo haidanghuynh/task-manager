@@ -41,6 +41,8 @@ nhật lại tài liệu trong cùng commit.
 - Task chưa phân công chỉ ở `/waiting-tasks`; task có assignee mới vào lịch chính.
 - `Task.plannedStartDate`/`plannedEndDate` nullable: task "chưa có thời hạn" khi cả hai ngày trống. Task
   này chỉ hiển thị ở phần cuối Lịch task chờ và không được phân công cho tới khi nhập đủ ngày.
+- Môi trường test (`/test-environments`) có loại cá nhân (Employee tự quản lý) và dùng chung (đăng ký/trả,
+  chỉ Admin xóa pool), gắn Product Gate/Zone/Hunter. Quyền `ENVIRONMENT_VIEW`/`ENVIRONMENT_MANAGE`.
 - Ở `/tasks`, filter `status` và `workType` độc lập; status trống không được tự loại DAILY, workType
   trống phải gồm PRODUCT + DAILY. List/group/export phải gửi cùng filter.
 - Lịch tháng có dialog timeline 24 giờ khi bấm tiêu đề/ô ngày; hàng giữ theo nhóm/nhân viên và thanh

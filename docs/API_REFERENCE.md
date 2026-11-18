@@ -89,6 +89,47 @@ không xóa dữ liệu cũ; kích hoạt lại giữ nguyên liên kết và nh
 
 Task lưu category code string. Edit không đổi category code; inactive không làm mất task cũ.
 
+## Môi trường test
+
+| Endpoint | Method | Quyền |
+|---|---|---|
+| `/api/test-environments` | GET | `ENVIRONMENT_VIEW`; trả toàn bộ môi trường active (PERSONAL + SHARED, chỉ đọc) |
+| `/api/test-environments` | POST | `ENVIRONMENT_MANAGE` hoặc Employee (tự tạo cá nhân) |
+| `/api/test-environments?id=` | PATCH | chủ sở hữu / Manager team / Admin |
+| `/api/test-environments?id=` | DELETE | chủ sở hữu / Admin (dùng chung chỉ Admin) |
+| `/api/test-environments/[id]/register` | POST | đăng ký dùng (dùng chung đang trống) |
+| `/api/test-environments/[id]/release` | POST | trả (người đang giữ / Admin / Manager) |
+| `/api/test-environments/[id]/usages` | GET | `ENVIRONMENT_VIEW`, chỉ đọc |
+| `/api/test-environments/expiring` | GET | `ENVIRONMENT_VIEW`; `days` 0-30 (mặc định 3), chỉ SHARED; người giữ + trưởng nhóm + Manager team, Admin tất cả |
+| `/api/test-environments/import` | POST | Admin hoặc `ENVIRONMENT_MANAGE`; body `{ rows }`, tối đa 1.000 dòng |
+| `/api/test-environment-os` | GET | Authenticated; `active=true` chỉ trả option đang dùng |
+| `/api/test-environment-os` | POST/PATCH/DELETE | Admin; PATCH/DELETE dùng `?id=`, `syncExisting` đổi tên kèm dữ liệu cũ |
+
+Fields: `type` (PERSONAL/SHARED), `productId` (bắt buộc), `employeeId`, `usagePeriod`, `usageEndDate`, `os`,
+`setupType` (NEW/UPDATE), `virus`, `hostName`, `ip`, `url`, `deliveryDomain`, `version`.
+
+Đăng ký dùng gửi `startDate`/`endDate` (`usagePeriod` vẫn được chấp nhận để tương thích). Mỗi lượt đăng ký
+tạo một `TestEnvironmentUsage`; trả/đổi người/xóa môi trường sẽ đóng lượt đang mở kèm người thực hiện.
+`expiring` trả môi trường có `usageEndDate <= hôm nay + days` (gồm cả đã quá hạn) để UI cảnh báo.
+Danh sách trả về phụ thuộc người gọi: người đang giữ, trưởng nhóm (`Team.leadId`) của người đó,
+Manager của team, và Admin (tất cả).
+
+CSV import môi trường test (client parse CSV rồi gửi `rows`):
+
+```csv
+type,productCode,employeeCode,usagePeriod,usageEndDate,os,setupType,virus,hostName,ip,url,deliveryDomain,version,buildInfo,commonVersion,sophosVersion
+SHARED,GATE,,2026-11-18,2026-11-25,Windows 11,NEW,,gate-test-02,10.0.0.12,,,2.22.4,2.20.0(29845),12.48.1(28380),3.5.0(29733)
+PERSONAL,ZONE,haontn,2026-11-01,,Ubuntu 22.04,NEW,,zone-dev-02,10.0.0.13,,,2.22.4,,,
+```
+
+- `productCode` bắt buộc và phải khớp `Product.code`; `employeeCode` tùy chọn, phải khớp `Employee.employeeCode`.
+- `type` nhận `PERSONAL`/`SHARED`; `setupType` nhận `NEW`/`UPDATE`; ngày dạng `yyyy-mm-dd`.
+- Dòng trùng `hostName` (không phân biệt hoa thường) với môi trường đang active sẽ bị bỏ qua và ghi vào `errors`.
+- Dòng có người dùng sẽ tự tạo một bản ghi `TestEnvironmentUsage` giống luồng đăng ký.
+
+`os` là text tự do trong DB nhưng UI chọn từ `TestEnvironmentOsOption` (Admin quản lý ở Cài đặt).
+Option chưa được dùng thì xóa hẳn; đang được dùng thì chỉ inactive và dữ liệu cũ giữ nguyên.
+
 ## Lịch/báo cáo
 
 | Endpoint | Method | Quyền | Query |

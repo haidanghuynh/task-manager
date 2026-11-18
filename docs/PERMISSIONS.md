@@ -28,10 +28,12 @@
 | `EMPLOYEE_MANAGE` | Tạo/sửa/xóa nhân viên |
 | `EMPLOYEE_IMPORT_EXPORT` | Import/export/bulk nhân viên |
 | `TEAM_MANAGE` | Quản lý nhóm/membership |
+| `ENVIRONMENT_VIEW` | Xem môi trường test |
+| `ENVIRONMENT_MANAGE` | Quản lý môi trường test (tạo/sửa/xóa) |
 
 Mặc định Manager có tất cả, bao gồm ba quyền DAILY, nhưng Admin có thể tùy chỉnh. Employee mặc
 định không có quyền tạo/sửa/xóa DAILY; Admin có thể cấp riêng từng quyền. Employee mặc định có `TASK_VIEW`,
-`TASK_UPDATE_OWN`, `SCHEDULE_VIEW`, `REPORT_VIEW`, `NIPPO_VIEW`, `NIPPO_SUBMIT`, `EMPLOYEE_VIEW`.
+`TASK_UPDATE_OWN`, `SCHEDULE_VIEW`, `REPORT_VIEW`, `NIPPO_VIEW`, `NIPPO_SUBMIT`, `EMPLOYEE_VIEW`, `ENVIRONMENT_VIEW`.
 
 Dependency: action task, kể cả DAILY, thêm `TASK_VIEW`; submit/manage NIPPO thêm `NIPPO_VIEW`;
 quản lý/import Employee, tạo task PRODUCT/DAILY, giao task hoặc quản lý team thêm `EMPLOYEE_VIEW`.
@@ -73,6 +75,15 @@ sửa đồng bộ mọi API.
 - `team`: `NIPPO_MANAGE`; Employee có quyền này vẫn chỉ team mình.
 - `overview`: giới hạn cứng role Admin.
 - Ghi/xóa nghỉ: `NIPPO_MANAGE` và data scope team.
+
+## Môi trường test
+
+- `ENVIRONMENT_VIEW`: xem toàn bộ danh sách và chi tiết (cả môi trường cá nhân của người khác) ở chế độ chỉ đọc.
+- `ENVIRONMENT_MANAGE`: Admin/Manager tạo/sửa/xóa. Employee tự quản lý (thêm/sửa/xóa) môi trường cá nhân của chính mình mà không cần quyền này.
+- Môi trường dùng chung (SHARED): ai cũng đăng ký dùng khi trống và trả khi xong; chỉ Admin xóa pool. Người có `ENVIRONMENT_MANAGE` được trả thay.
+- Cảnh báo hết hạn/quá hạn (`/api/test-environments/expiring`): người đang giữ môi trường và trưởng nhóm
+  (`Team.leadId`) của người đó nhận cảnh báo; Manager nhận thêm môi trường của team mình; Admin nhận tất cả.
+- Lịch sử dùng (`/api/test-environments/[id]/usages`): mọi user có `ENVIRONMENT_VIEW` đều xem được, chỉ đọc.
 
 ## Khi thêm quyền
 
