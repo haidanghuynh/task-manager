@@ -43,6 +43,9 @@ nhật lại tài liệu trong cùng commit.
   này chỉ hiển thị ở phần cuối Lịch task chờ và không được phân công cho tới khi nhập đủ ngày.
 - Môi trường test (`/test-environments`) có loại cá nhân (Employee tự quản lý) và dùng chung (đăng ký/trả,
   chỉ Admin xóa pool), gắn Product Gate/Zone/Hunter. Quyền `ENVIRONMENT_VIEW`/`ENVIRONMENT_MANAGE`.
+- Thiết bị test (`/test-devices`) là tài sản vật lý (Dell Burp, MacBook, điện thoại) dùng chung quyền
+  `ENVIRONMENT_VIEW`/`ENVIRONMENT_MANAGE`; có người mượn + hạn trả, lịch sử `TestDeviceUsage`, cảnh báo
+  hết hạn cho người giữ và trưởng nhóm.
 - Ở `/tasks`, filter `status` và `workType` độc lập; status trống không được tự loại DAILY, workType
   trống phải gồm PRODUCT + DAILY. List/group/export phải gửi cùng filter.
 - Lịch tháng có dialog timeline 24 giờ khi bấm tiêu đề/ô ngày; hàng giữ theo nhóm/nhân viên và thanh

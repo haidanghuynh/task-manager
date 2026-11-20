@@ -19,6 +19,7 @@ import {
   ClipboardList,
   ChevronDown,
   Server,
+  Laptop,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -47,6 +48,7 @@ export function Sidebar() {
     ...(hasPermission(user, "EMPLOYEE_VIEW") ? [{ href: "/employees", label: t.common.employees, icon: Users }] : []),
     ...(hasPermission(user, "TEAM_MANAGE") ? [{ href: "/teams", label: t.common.teams, icon: UsersRound }] : []),
     ...(hasPermission(user, "ENVIRONMENT_VIEW") ? [{ href: "/test-environments", label: t.common.testEnvironments, icon: Server }] : []),
+    ...(hasPermission(user, "ENVIRONMENT_VIEW") ? [{ href: "/test-devices", label: t.common.testDevices, icon: Laptop }] : []),
     ...(reportItems.length > 0 ? [{ label: t.common.reports, icon: FileBarChart, children: reportItems }] : []),
     ...(role === "ADMIN"
       ? [{ href: "/accounts", label: t.common.accounts, icon: UserCog }]

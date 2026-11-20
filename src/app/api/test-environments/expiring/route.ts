@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { getBusinessDateBoundary } from "@/lib/date";
+import { expiringEmployeeIds } from "@/lib/test-asset-scope";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -31,32 +32,9 @@ export async function GET(req: NextRequest) {
   };
 
   if (user.role !== "ADMIN") {
-    const employeeIds = new Set<string>();
-    if (user.employeeId) employeeIds.add(user.employeeId);
-
-    // Trưởng nhóm (Team.leadId) nhận cảnh báo cho môi trường của thành viên trong nhóm.
-    if (user.employeeId) {
-      const ledTeams = await prisma.team.findMany({ where: { leadId: user.employeeId }, select: { id: true } });
-      if (ledTeams.length > 0) {
-        const members = await prisma.employee.findMany({
-          where: { teamId: { in: ledTeams.map((team) => team.id) }, isActive: true },
-          select: { id: true },
-        });
-        for (const member of members) employeeIds.add(member.id);
-      }
-    }
-
-    // Manager phụ trách team hiện tại cũng nhận cảnh báo của team đó.
-    if (user.role === "MANAGER" && user.teamId) {
-      const members = await prisma.employee.findMany({
-        where: { teamId: user.teamId, isActive: true },
-        select: { id: true },
-      });
-      for (const member of members) employeeIds.add(member.id);
-    }
-
-    if (employeeIds.size === 0) return NextResponse.json({ success: true, data: [] });
-    where.employeeId = { in: [...employeeIds] };
+    const employeeIds = await expiringEmployeeIds(user);
+    if (!employeeIds || employeeIds.length === 0) return NextResponse.json({ success: true, data: [] });
+    where.employeeId = { in: employeeIds };
   }
 
   const environments = await prisma.testEnvironment.findMany({

@@ -20,6 +20,8 @@ hiện không khớp schema.
 | `TestEnvironment` | Môi trường test cá nhân/dùng chung gắn Product + Employee; text OS/host/IP/URL/version... |
 | `TestEnvironmentOsOption` | Option OS cho ô chọn môi trường test: name unique, groupName, sortOrder, active |
 | `TestEnvironmentUsage` | Lịch sử từng lượt đăng ký dùng môi trường: người, start/end, đăng ký lúc, trả lúc, người trả, lý do |
+| `TestDevice` | Thiết bị test vật lý: code unique, loại, mục đích, serial, trạng thái, người đang mượn + hạn trả |
+| `TestDeviceUsage` | Lịch sử mượn/trả thiết bị: người mượn, start/end, mượn lúc, trả lúc, người nhận, tình trạng khi trả |
 | `Task` | Code không unique, PRODUCT/DAILY, thời gian/status/progress, một assignee, nhóm liên kết tùy chọn, soft delete |
 | `TaskAssignmentHistory` | Giai đoạn phân công và lý do tùy chọn |
 | `TaskStatusHistory`, `TaskChangeLog` | Audit status/field |
@@ -38,6 +40,9 @@ hiện không khớp schema.
 - `TestEnvironmentUsage` chỉ mở một bản ghi `releasedAt = null` cho mỗi môi trường tại một thời điểm;
   register/release/đổi người phụ trách/xóa môi trường phải đóng hoặc mở bản ghi trong cùng transaction.
 - `TestEnvironment.usagePeriod`/`usageEndDate` là khoảng ngày của lượt đang mở, không thay thế lịch sử.
+- `TestDevice` chỉ có một lượt mở (`TestDeviceUsage.returnedAt = null`) tại một thời điểm; trạng thái
+  `IN_USE` luôn đi cùng `employeeId` + khoảng ngày, trả thiết bị thì xóa người/hạn và trả `AVAILABLE`
+  (hỏng → `MAINTENANCE`, mất → `RETIRED`). Thiết bị đã có lịch sử thì xóa mềm.
 - `Task.taskCode` có index nhưng không unique.
 - `Task.assignmentGroupId` nullable, có index. Khi tạo DAILY cho nhiều người, mỗi người có một Task
   riêng cùng group ID; không dùng field này để đồng bộ tiến độ hoặc trạng thái.

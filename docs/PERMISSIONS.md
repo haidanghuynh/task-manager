@@ -84,6 +84,9 @@ sửa đồng bộ mọi API.
 - Cảnh báo hết hạn/quá hạn (`/api/test-environments/expiring`): người đang giữ môi trường và trưởng nhóm
   (`Team.leadId`) của người đó nhận cảnh báo; Manager nhận thêm môi trường của team mình; Admin nhận tất cả.
 - Lịch sử dùng (`/api/test-environments/[id]/usages`): mọi user có `ENVIRONMENT_VIEW` đều xem được, chỉ đọc.
+- Thiết bị test (`/test-devices`) dùng chung `ENVIRONMENT_VIEW`/`ENVIRONMENT_MANAGE`: mọi người xem được,
+  Admin/Manager (có manage) tạo-sửa-xóa thiết bị; nhân viên tự mượn/trả thiết bị trống. Lịch sử mượn/trả
+  xem được với `ENVIRONMENT_VIEW`; cảnh báo hết hạn áp dụng cùng phạm vi như môi trường test.
 
 ## Khi thêm quyền
 

@@ -32,6 +32,8 @@ model User {
   auditLogs        AuditLog[]             @relation("AuditActor")
   createdTestEnvironments TestEnvironment[] @relation("TestEnvironmentCreatedBy")
   releasedTestEnvironmentUsages TestEnvironmentUsage[] @relation("TestEnvironmentUsageReleasedBy")
+  createdTestDevices TestDevice[] @relation("TestDeviceCreatedBy")
+  returnedTestDeviceUsages TestDeviceUsage[] @relation("TestDeviceUsageReturnedBy")
 
   @@index([deletedAt])
   @@map("users")
@@ -59,6 +61,8 @@ model Employee {
   nippoAbsences      NippoAbsence[]
   testEnvironments   TestEnvironment[]
   testEnvironmentUsages TestEnvironmentUsage[]
+  testDevices        TestDevice[]         @relation("TestDeviceHolder")
+  testDeviceUsages   TestDeviceUsage[]    @relation("TestDeviceUsageEmployee")
 
   @@map("employees")
 }
@@ -180,6 +184,59 @@ model TestEnvironmentUsage {
   @@index([employeeId, releasedAt])
   @@index([endDate])
   @@map("test_environment_usages")
+}
+
+// Thiết bị test vật lý (máy Burp, MacBook, điện thoại...) và lịch sử mượn/trả.
+// Chỉ có một lượt mở (returnedAt = null) cho mỗi thiết bị tại một thời điểm.
+model TestDevice {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  name           String
+  category       String    @default("LAPTOP") // LAPTOP, DESKTOP, PHONE, TABLET, OTHER
+  purpose        String?
+  os             String?
+  serialNumber   String?
+  location       String?
+  note           String?
+  status         String    @default("AVAILABLE") // AVAILABLE, IN_USE, MAINTENANCE, RETIRED
+  employeeId     String?
+  usageStartDate DateTime?
+  usageEndDate   DateTime?
+  isActive       Boolean   @default(true)
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  employee  Employee?         @relation("TestDeviceHolder", fields: [employeeId], references: [id], onDelete: SetNull)
+  createdBy User?             @relation("TestDeviceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  usages    TestDeviceUsage[]
+
+  @@index([status])
+  @@index([employeeId])
+  @@index([usageEndDate])
+  @@map("test_devices")
+}
+
+model TestDeviceUsage {
+  id              String    @id @default(cuid())
+  deviceId        String
+  employeeId      String
+  startDate       DateTime
+  endDate         DateTime
+  checkedOutAt    DateTime  @default(now())
+  returnedAt      DateTime?
+  returnedById    String?
+  returnCondition String?   // OK, DAMAGED, LOST
+  note            String?
+
+  device     TestDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation("TestDeviceUsageEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  returnedBy User?      @relation("TestDeviceUsageReturnedBy", fields: [returnedById], references: [id], onDelete: SetNull)
+
+  @@index([deviceId, checkedOutAt])
+  @@index([employeeId, returnedAt])
+  @@index([endDate])
+  @@map("test_device_usages")
 }
 
 // Danh sách OS cho ô chọn ở màn hình Môi trường test.

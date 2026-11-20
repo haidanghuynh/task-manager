@@ -127,6 +127,25 @@ PERSONAL,ZONE,haontn,2026-11-01,,Ubuntu 22.04,NEW,,zone-dev-02,10.0.0.13,,,2.22.
 - Dòng trùng `hostName` (không phân biệt hoa thường) với môi trường đang active sẽ bị bỏ qua và ghi vào `errors`.
 - Dòng có người dùng sẽ tự tạo một bản ghi `TestEnvironmentUsage` giống luồng đăng ký.
 
+## Thiết bị test
+
+| Endpoint | Method | Quyền |
+|---|---|---|
+| `/api/test-devices` | GET | `ENVIRONMENT_VIEW`; filter `status`, `category`, `search` |
+| `/api/test-devices` | POST | Admin hoặc `ENVIRONMENT_MANAGE` |
+| `/api/test-devices/[id]` | PATCH | Admin hoặc `ENVIRONMENT_MANAGE`; trạng thái `MAINTENANCE`/`RETIRED` chỉ khi trống |
+| `/api/test-devices/[id]` | DELETE | Admin hoặc `ENVIRONMENT_MANAGE`; đang mượn => 409, có lịch sử => xóa mềm |
+| `/api/test-devices/[id]/checkout` | POST | người dùng tự mượn, hoặc Admin/Manager mượn hộ |
+| `/api/test-devices/[id]/return` | POST | người đang giữ / Admin / Manager; `returnCondition` OK/DAMAGED/LOST |
+| `/api/test-devices/[id]/usages` | GET | `ENVIRONMENT_VIEW`, chỉ đọc |
+| `/api/test-devices/expiring` | GET | `ENVIRONMENT_VIEW`; `days` 0-30; người giữ + trưởng nhóm + Manager team, Admin tất cả |
+| `/api/test-devices/import` | POST | Admin hoặc `ENVIRONMENT_MANAGE`; body `{ rows }`, tối đa 1.000 dòng |
+
+CSV thiết bị: `code,name,category,purpose,os,serialNumber,location,note,employeeCode,usageStartDate,usageEndDate`.
+`code` unique và khớp `^[A-Z0-9._-]{2,50}$`; `category` LAPTOP/DESKTOP/PHONE/TABLET/OTHER; có `employeeCode`
+thì thiết bị vào trạng thái `IN_USE` và tạo một bản ghi `TestDeviceUsage`. Trả thiết bị với `DAMAGED`
+chuyển `MAINTENANCE`, `LOST` chuyển `RETIRED`.
+
 `os` là text tự do trong DB nhưng UI chọn từ `TestEnvironmentOsOption` (Admin quản lý ở Cài đặt).
 Option chưa được dùng thì xóa hẳn; đang được dùng thì chỉ inactive và dữ liệu cũ giữ nguyên.
 
