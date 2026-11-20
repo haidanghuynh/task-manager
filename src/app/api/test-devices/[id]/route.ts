@@ -87,7 +87,8 @@ export async function DELETE(
 ) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  if (!canManage(user)) return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
+  // Chỉ Admin được xóa/thanh lý thiết bị; Manager chỉ sửa và trả hộ.
+  if (user.role !== "ADMIN") return NextResponse.json({ success: false, error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const { id } = await params;
   const device = await prisma.testDevice.findUnique({ where: { id }, select: { id: true, code: true, employeeId: true, isActive: true } });

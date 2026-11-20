@@ -134,7 +134,7 @@ PERSONAL,ZONE,haontn,2026-11-01,,Ubuntu 22.04,NEW,,zone-dev-02,10.0.0.13,,,2.22.
 | `/api/test-devices` | GET | `ENVIRONMENT_VIEW`; filter `status`, `category`, `search` |
 | `/api/test-devices` | POST | Admin hoặc `ENVIRONMENT_MANAGE` |
 | `/api/test-devices/[id]` | PATCH | Admin hoặc `ENVIRONMENT_MANAGE`; trạng thái `MAINTENANCE`/`RETIRED` chỉ khi trống |
-| `/api/test-devices/[id]` | DELETE | Admin hoặc `ENVIRONMENT_MANAGE`; đang mượn => 409, có lịch sử => xóa mềm |
+| `/api/test-devices/[id]` | DELETE | Admin; đang mượn => 409, có lịch sử => xóa mềm |
 | `/api/test-devices/[id]/checkout` | POST | người dùng tự mượn, hoặc Admin/Manager mượn hộ |
 | `/api/test-devices/[id]/return` | POST | người đang giữ / Admin / Manager; `returnCondition` OK/DAMAGED/LOST |
 | `/api/test-devices/[id]/usages` | GET | `ENVIRONMENT_VIEW`, chỉ đọc |

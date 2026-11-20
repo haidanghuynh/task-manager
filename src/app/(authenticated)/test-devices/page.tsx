@@ -89,6 +89,7 @@ export default function TestDevicesPage() {
   const { t } = useLang();
   const user = session?.user as { role: "ADMIN" | "MANAGER" | "EMPLOYEE"; permissions?: AppPermission[]; employeeId?: string | null } | undefined;
   const currentEmployeeId = user?.employeeId;
+  const isAdmin = user?.role === "ADMIN";
   const canManage = hasPermission(user, "ENVIRONMENT_MANAGE");
 
   const [devices, setDevices] = useState<Device[]>([]);
@@ -561,7 +562,7 @@ export default function TestDevicesPage() {
                           )}
                           <button type="button" onClick={() => openHistory(device)} className="text-xs font-medium text-gray-600 hover:text-blue-600">{t.testDevice.history}</button>
                           {canManage && <button type="button" onClick={() => openEdit(device)} className="text-xs text-blue-600 hover:underline">{t.common.edit}</button>}
-                          {canManage && <button type="button" onClick={() => remove(device)} className="text-xs text-red-600 hover:underline">{t.common.delete}</button>}
+                          {isAdmin && <button type="button" onClick={() => remove(device)} className="text-xs text-red-600 hover:underline">{t.common.delete}</button>}
                         </div>
                       </td>
                     </tr>
